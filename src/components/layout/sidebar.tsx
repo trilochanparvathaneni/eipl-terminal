@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react"
 import { getNavItems } from "@/lib/rbac"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { BrandLockup } from "@/components/brand/BrandLockup"
 import {
   LayoutDashboard,
   CalendarDays,
@@ -43,14 +44,8 @@ export function Sidebar() {
 
   const nav = (
     <div className="flex flex-col h-full">
-      <div className="pt-6 pb-4 px-4 border-b text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/images/eipl-logo.jpg"
-          alt="EIPL Logo"
-          className="mx-auto max-w-[200px] h-auto"
-        />
-        <p className="text-[10px] text-green-600 mt-1">Operations & Truck Mgmt</p>
+      <div className="pt-5 pb-4 px-4 border-b">
+        <BrandLockup variant="sidebar" />
       </div>
 
       <nav className="flex-1 p-3 space-y-1">

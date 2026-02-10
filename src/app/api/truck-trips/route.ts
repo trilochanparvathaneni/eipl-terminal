@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Booking must be in appropriate status
-  const allowedStatuses = [
+  const allowedStatuses: string[] = [
     BookingStatus.OPS_SCHEDULED,
     BookingStatus.TRUCK_DETAILS_PENDING,
     BookingStatus.QR_ISSUED,

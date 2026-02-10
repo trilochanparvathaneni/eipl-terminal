@@ -99,7 +99,7 @@ export function getNavItems(role: Role): NavItem[] {
     items.push({ label: 'Gate Ops', href: '/security/gate' })
   }
 
-  if ([Role.HSE_OFFICER, Role.SUPER_ADMIN].includes(role)) {
+  if (([Role.HSE_OFFICER, Role.SUPER_ADMIN] as string[]).includes(role)) {
     items.push({ label: 'HSE', href: '/hse' })
   }
 

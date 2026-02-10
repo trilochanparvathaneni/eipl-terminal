@@ -27,18 +27,18 @@ export function getNextStatuses(current: BookingStatus): BookingStatus[] {
 }
 
 export function isModifiable(status: BookingStatus): boolean {
-  return [BookingStatus.SUBMITTED, BookingStatus.CLIENT_APPROVED].includes(status)
+  return ([BookingStatus.SUBMITTED, BookingStatus.CLIENT_APPROVED] as string[]).includes(status)
 }
 
 export function isCancellable(status: BookingStatus): boolean {
-  return [
+  return ([
     BookingStatus.DRAFT,
     BookingStatus.SUBMITTED,
     BookingStatus.CLIENT_APPROVED,
     BookingStatus.OPS_SCHEDULED,
     BookingStatus.TRUCK_DETAILS_PENDING,
     BookingStatus.QR_ISSUED,
-  ].includes(status)
+  ] as string[]).includes(status)
 }
 
 export function generateBookingNo(): string {

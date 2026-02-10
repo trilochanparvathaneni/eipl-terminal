@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { BrandLockup } from "@/components/brand/BrandLockup"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,16 +51,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8 flex flex-col items-center">
-          <Image
-            src="/images/eipl-logo.jpg"
-            alt="East India Petroleum Limited"
-            width={280}
-            height={120}
-            className="object-contain"
-            priority
-          />
-          <p className="text-sm text-muted-foreground mt-2 italic">Safety in Storage, Strength in Legacy</p>
+        <div className="mb-8">
+          <BrandLockup variant="auth" />
         </div>
 
         <Card>
