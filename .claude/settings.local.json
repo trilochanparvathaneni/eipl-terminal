@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sc query:*)",
+      "Bash(net start)",
+      "Bash(findstr:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(where:*)",
+      "Bash(docker --version:*)",
+      "Bash(docker compose:*)",
+      "Bash(timeout /t 10 /nobreak)",
+      "Bash(docker info:*)",
+      "Bash(wsl --list --verbose:*)",
+      "Bash(wsl:*)",
+      "Bash(powershell:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx tsx prisma/seed.ts)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(1 <<'EOF'\nSELECT name, email, role, \"isActive\" FROM \"User\" ORDER BY role;\nEOF)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx next dev)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(__NEW_LINE_e5ae83fd184f74d2__ echo \"\")",
+      "Bash(__NEW_LINE_0b8e32d235805203__ echo \"\")",
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)",
+      "Bash(git --version:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

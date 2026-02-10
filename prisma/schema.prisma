@@ -1,0 +1,412 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  TERMINAL_ADMIN
+  CLIENT
+  TRANSPORTER
+  SECURITY
+  SURVEYOR
+  HSE_OFFICER
+  AUDITOR
+}
+
+enum ProductCategory {
+  LPG
+  POL
+  CHEMICAL
+}
+
+enum BookingStatus {
+  DRAFT
+  SUBMITTED
+  CLIENT_APPROVED
+  OPS_SCHEDULED
+  TRUCK_DETAILS_PENDING
+  QR_ISSUED
+  ARRIVED_GATE
+  IN_TERMINAL
+  LOADED
+  EXITED
+  CLOSED
+  REJECTED
+  CANCELLED
+  STOP_WORK
+}
+
+enum TruckTripStatus {
+  PENDING
+  QR_ISSUED
+  ARRIVED
+  IN_TERMINAL
+  LOADED
+  EXITED
+  COMPLETED
+}
+
+enum GateEventType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum ChecklistStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum IncidentSeverity {
+  LOW
+  MED
+  HIGH
+}
+
+enum IncidentStatus {
+  OPEN
+  CLOSED
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  clientId     String?
+  transporterId String?
+  terminalId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client      Client?      @relation(fields: [clientId], references: [id])
+  transporter Transporter? @relation(fields: [transporterId], references: [id])
+  terminal    Terminal?    @relation(fields: [terminalId], references: [id])
+
+  bookingsCreated      Booking[]           @relation("BookingCreator")
+  bayAllocations       BookingBayAllocation[] @relation("Allocator")
+  gateEvents           GateEvent[]         @relation("SecurityUser")
+  safetyChecklists     SafetyChecklist[]   @relation("HseCreator")
+  stopWorkOrders       StopWorkOrder[]     @relation("StopWorkIssuer")
+  incidentsReported    Incident[]          @relation("IncidentReporter")
+  notifications        Notification[]
+  auditLogs            AuditLog[]          @relation("AuditActor")
+
+  @@index([role])
+  @@index([email])
+}
+
+model Client {
+  id       String  @id @default(cuid())
+  name     String
+  email    String
+  phone    String?
+  address  String?
+  isActive Boolean @default(true)
+
+  users         User[]
+  inventoryLots InventoryLot[]
+  bookings      Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transporter {
+  id       String  @id @default(cuid())
+  name     String
+  email    String
+  phone    String?
+  address  String?
+  isActive Boolean @default(true)
+
+  users    User[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  name        String
+  category    ProductCategory
+  isHazardous Boolean         @default(false)
+
+  inventoryLots  InventoryLot[]
+  productBayMaps ProductBayMap[]
+  bookings       Booking[]
+
+  createdAt DateTime @default(now())
+}
+
+model InventoryLot {
+  id                String  @id @default(cuid())
+  clientId          String
+  productId         String
+  quantityAvailable Float
+  uom               String  @default("KL")
+
+  client  Client  @relation(fields: [clientId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, productId])
+  @@index([clientId])
+}
+
+model Terminal {
+  id       String @id @default(cuid())
+  name     String
+  location String
+
+  gantries  Gantry[]
+  timeSlots TimeSlot[]
+  bookings  Booking[]
+  incidents Incident[]
+  users     User[]
+
+  createdAt DateTime @default(now())
+}
+
+model Gantry {
+  id         String @id @default(cuid())
+  terminalId String
+  name       String
+
+  terminal Terminal @relation(fields: [terminalId], references: [id])
+  bays     Bay[]
+
+  @@index([terminalId])
+}
+
+model Bay {
+  id         String @id @default(cuid())
+  gantryId   String
+  name       String
+  uniqueCode String @unique
+
+  gantry          Gantry              @relation(fields: [gantryId], references: [id])
+  productBayMaps  ProductBayMap[]
+  bayAllocations  BookingBayAllocation[]
+
+  @@index([gantryId])
+}
+
+model ProductBayMap {
+  id        String  @id @default(cuid())
+  productId String
+  bayId     String
+  isActive  Boolean @default(true)
+
+  product Product @relation(fields: [productId], references: [id])
+  bay     Bay     @relation(fields: [bayId], references: [id])
+
+  @@unique([productId, bayId])
+}
+
+model TimeSlot {
+  id            String   @id @default(cuid())
+  terminalId    String
+  date          DateTime @db.Date
+  startTime     String   // HH:mm format
+  endTime       String   // HH:mm format
+  capacityTrucks Int     @default(5)
+
+  terminal Terminal  @relation(fields: [terminalId], references: [id])
+  bookings Booking[]
+
+  @@index([terminalId, date])
+  @@index([date])
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  bookingNo          String        @unique
+  terminalId         String
+  clientId           String
+  productId          String
+  quantityRequested  Float
+  date               DateTime      @db.Date
+  timeSlotId         String?
+  transporterId      String?
+  status             BookingStatus @default(DRAFT)
+  isBulk             Boolean       @default(false)
+  additionalRequests String?
+  createdByUserId    String
+
+  terminal    Terminal     @relation(fields: [terminalId], references: [id])
+  client      Client       @relation(fields: [clientId], references: [id])
+  product     Product      @relation(fields: [productId], references: [id])
+  timeSlot    TimeSlot?    @relation(fields: [timeSlotId], references: [id])
+  transporter Transporter? @relation(fields: [transporterId], references: [id])
+  createdBy   User         @relation("BookingCreator", fields: [createdByUserId], references: [id])
+
+  bayAllocations    BookingBayAllocation[]
+  truckTrips        TruckTrip[]
+  safetyChecklists  SafetyChecklist[]
+  stopWorkOrders    StopWorkOrder[]
+  incidents         Incident[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([date])
+  @@index([bookingNo])
+  @@index([clientId])
+  @@index([terminalId])
+}
+
+model BookingBayAllocation {
+  id              String   @id @default(cuid())
+  bookingId       String
+  bayId           String
+  allocatedByUserId String
+  allocatedAt     DateTime @default(now())
+
+  booking     Booking @relation(fields: [bookingId], references: [id])
+  bay         Bay     @relation(fields: [bayId], references: [id])
+  allocatedBy User    @relation("Allocator", fields: [allocatedByUserId], references: [id])
+
+  @@index([bookingId])
+}
+
+model TruckTrip {
+  id          String          @id @default(cuid())
+  bookingId   String
+  truckNumber String
+  driverName  String
+  driverPhone String
+  qrToken     String?         @unique
+  status      TruckTripStatus @default(PENDING)
+
+  booking    Booking     @relation(fields: [bookingId], references: [id])
+  gateEvents GateEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([qrToken])
+}
+
+model GateEvent {
+  id              String        @id @default(cuid())
+  truckTripId     String
+  type            GateEventType
+  timestamp       DateTime      @default(now())
+  securityUserId  String
+  payloadJson     Json?
+  photoTruckUrl   String?
+  photoDriverUrl  String?
+  weighmentTare   Float?
+  weighmentGross  Float?
+  netQuantity     Float?
+
+  truckTrip TruckTrip @relation(fields: [truckTripId], references: [id])
+  security  User      @relation("SecurityUser", fields: [securityUserId], references: [id])
+
+  @@index([truckTripId])
+  @@index([timestamp])
+}
+
+model SafetyChecklist {
+  id             String          @id @default(cuid())
+  bookingId      String
+  createdByHseId String
+  status         ChecklistStatus @default(PENDING)
+  checklistJson  Json
+
+  booking   Booking @relation(fields: [bookingId], references: [id])
+  createdBy User    @relation("HseCreator", fields: [createdByHseId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+}
+
+model StopWorkOrder {
+  id            String   @id @default(cuid())
+  bookingId     String
+  issuedByHseId String
+  reason        String
+  active        Boolean  @default(true)
+
+  booking  Booking @relation(fields: [bookingId], references: [id])
+  issuedBy User    @relation("StopWorkIssuer", fields: [issuedByHseId], references: [id])
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([bookingId])
+  @@index([active])
+}
+
+model Incident {
+  id              String           @id @default(cuid())
+  terminalId      String
+  bookingId       String?
+  reportedByUserId String
+  severity        IncidentSeverity
+  description     String
+  status          IncidentStatus   @default(OPEN)
+
+  terminal   Terminal @relation(fields: [terminalId], references: [id])
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  reportedBy User     @relation("IncidentReporter", fields: [reportedByUserId], references: [id])
+
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  @@index([terminalId])
+  @@index([status])
+}
+
+model Notification {
+  id      String              @id @default(cuid())
+  userId  String
+  channel NotificationChannel
+  subject String
+  body    String
+  readAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  entityType  String
+  entityId    String
+  action      String
+  beforeJson  Json?
+  afterJson   Json?
+  ipAddress   String?
+
+  actor User @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
