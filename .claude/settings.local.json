@@ -32,7 +32,31 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(del \"\\\\?\\\\D:\\\\Truck Management App\\\\nul\")",
+      "Bash(cmd //c \"del /f /q \"\"\\\\\\\\?\\\\D:\\\\Truck Management App\\\\nul\"\"\")",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(npx next build:*)",
+      "Bash(cmd //c \"netstat -ano | findstr :3000 | findstr LISTENING\")",
+      "Bash(npm run dev:*)",
+      "Bash(CSRF=\"212141d2dcaece0094f6fb50602576b7857513e9297e5872f056d3478a8c6a4a\")",
+      "Bash(python3 -c \"import sys,json; print\\(json.load\\(sys.stdin\\)[''csrfToken'']\\)\")",
+      "Bash(CSRF=\"18dc5fa962328c2c7956012edbfcd5fb0ae385e939e83683c82a9c8634d3812d\")",
+      "Bash(npx next dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(printf:*)",
+      "Bash(git credential:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma generate)",
+      "Bash(npm run seed:*)",
+      "Bash(npx vercel:*)"
     ]
   }
 }

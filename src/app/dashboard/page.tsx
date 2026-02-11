@@ -19,6 +19,7 @@ import {
   BarChart3,
   Activity,
 } from "lucide-react"
+import { BayHeatmap } from "@/components/dashboard/BayHeatmap"
 import {
   AreaChart,
   Area,
@@ -107,6 +108,7 @@ const STAT_CARDS = [
     border: "border-blue-200",
     iconColor: "text-blue-600",
     badgeBg: "bg-blue-100",
+    href: "/bookings",
   },
   {
     key: "todayTrips" as const,
@@ -117,6 +119,7 @@ const STAT_CARDS = [
     border: "border-green-200",
     iconColor: "text-green-600",
     badgeBg: "bg-green-100",
+    href: "/schedule",
   },
   {
     key: "inTerminal" as const,
@@ -127,6 +130,7 @@ const STAT_CARDS = [
     border: "border-purple-200",
     iconColor: "text-purple-600",
     badgeBg: "bg-purple-100",
+    href: "/schedule?filter=in-terminal",
   },
   {
     key: "openIncidents" as const,
@@ -137,6 +141,7 @@ const STAT_CARDS = [
     border: "border-red-200",
     iconColor: "text-red-600",
     badgeBg: "bg-red-100",
+    href: "/hse",
   },
 ]
 
@@ -193,39 +198,40 @@ export default function DashboardPage() {
           const Icon = card.icon
           const trend = trends[card.key]
           return (
-            <Card
-              key={card.key}
-              className={`${card.bg} ${card.border} border shadow-sm hover:shadow-md transition-shadow`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {card.title}
-                </CardTitle>
-                <div className={`${card.badgeBg} p-2 rounded-lg`}>
-                  <Icon className={`h-4 w-4 ${card.iconColor}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-gray-900">
-                  {stats[card.key]}
-                </div>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-xs text-gray-500">{card.subtitle}</p>
-                  <span
-                    className={`text-xs font-medium flex items-center gap-0.5 ${
-                      trend.up ? "text-green-600" : "text-red-500"
-                    }`}
-                  >
-                    {trend.up ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    {trend.up ? "+" : "-"}{trend.value}% vs last week
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={card.key} href={card.href}>
+              <Card
+                className={`${card.bg} ${card.border} border shadow-sm cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    {card.title}
+                  </CardTitle>
+                  <div className={`${card.badgeBg} p-2 rounded-lg`}>
+                    <Icon className={`h-4 w-4 ${card.iconColor}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-gray-900">
+                    {stats[card.key]}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-gray-500">{card.subtitle}</p>
+                    <span
+                      className={`text-xs font-medium flex items-center gap-0.5 ${
+                        trend.up ? "text-green-600" : "text-red-500"
+                      }`}
+                    >
+                      {trend.up ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {trend.up ? "+" : "-"}{trend.value}% vs last week
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           )
         })}
       </div>
@@ -400,6 +406,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Bay Utilization Heatmap ──────────────────────────────────────── */}
+      <BayHeatmap />
 
       {/* ── Recent Bookings Table ────────────────────────────────────────── */}
       <Card className="shadow-sm">

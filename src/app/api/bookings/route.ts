@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const dateTo = url.searchParams.get('dateTo')
   const clientId = url.searchParams.get('clientId')
   const productId = url.searchParams.get('productId')
+  const search = url.searchParams.get('search')
   const page = parseInt(url.searchParams.get('page') || '1')
   const limit = parseInt(url.searchParams.get('limit') || '20')
 
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status
   if (clientId) where.clientId = clientId
   if (productId) where.productId = productId
+  if (search) where.bookingNo = { contains: search, mode: 'insensitive' }
   if (dateFrom || dateTo) {
     where.date = {}
     if (dateFrom) where.date.gte = new Date(dateFrom)

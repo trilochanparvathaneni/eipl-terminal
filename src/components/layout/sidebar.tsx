@@ -44,7 +44,7 @@ export function Sidebar() {
 
   const nav = (
     <div className="flex flex-col h-full">
-      <div className="pt-5 pb-4 px-4 border-b">
+      <div className="mt-8 mb-2 mx-3 px-3 py-3 rounded-lg bg-gray-50 border border-gray-200">
         <BrandLockup variant="sidebar" />
       </div>
 

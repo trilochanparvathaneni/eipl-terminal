@@ -12,7 +12,27 @@ import {
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+})
+
+// Retry helper for remote DB connections that may drop
+async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 2000): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err: any) {
+      if (i === retries - 1) throw err
+      console.log(`  ⚠ Connection error, retrying in ${delayMs}ms... (attempt ${i + 2}/${retries})`)
+      await new Promise((r) => setTimeout(r, delayMs))
+    }
+  }
+  throw new Error('Unreachable')
+}
 
 // ─── Deterministic PRNG (Mulberry32) ───────────────────────────────────────
 function mulberry32(seed: number) {
@@ -424,7 +444,26 @@ async function main() {
     const dt = dayTargets[dayIdx]
     const dayDate = dt.date
 
-    // ── Accepted bookings for this day ──
+    // Pre-compute all data for this day before hitting DB
+    interface AcceptedEntry {
+      bookingNo: string; clientId: string; bayCode: string; product: typeof products[0];
+      transporterId: string; timeSlotId: string; qty: number; isBulk: boolean;
+      createdAt: Date; truckNo: string; driverName: string; driverPhone: string;
+      qrToken: string; localTruckIdx: number; slotH: number; slotM: number;
+      checkInTime: Date; checkOutTime: Date; tare: number; gross: number; net: number;
+    }
+    interface RejectedEntry {
+      bookingNo: string; clientId: string; product: typeof products[0];
+      transporterId: string; timeSlotId: string; qty: number;
+      createdAt: Date; rejectedAtGate: boolean; truckNo?: string;
+      driverName?: string; driverPhone?: string; qrToken?: string;
+      localTruckIdx?: number; slotH?: number; slotM?: number; arrTime?: Date; reason?: string;
+    }
+
+    const acceptedEntries: AcceptedEntry[] = []
+    const rejectedEntries: RejectedEntry[] = []
+
+    // ── Pre-compute accepted bookings for this day ──
     for (let slotIdx = 0; slotIdx < SLOT_DEFS.length; slotIdx++) {
       const count = slotDayAccepted[dayIdx][slotIdx]
       for (let v = 0; v < count; v++) {
@@ -435,94 +474,32 @@ async function main() {
         const transporterId = pick(transporterIds)
         const slotKey = `${dt.dateStr}|${SLOT_DEFS[slotIdx].start}`
         const timeSlotId = timeslotMap[slotKey]
-
         const bookingNo = `BK25${String(bookingCounter).padStart(5, '0')}`
         const qty = product.category === 'LPG' ? randInt(8, 20) : randInt(10, 40)
+        const localTruckIdx = truckIdx++
 
-        const booking = await prisma.booking.create({
-          data: {
-            bookingNo,
-            terminalId: terminal.id,
-            clientId,
-            productId: product.id,
-            quantityRequested: qty,
-            date: dayDate,
-            timeSlotId,
-            transporterId,
-            status: BookingStatus.CLOSED,
-            isBulk: rng() < 0.1,
-            createdByUserId: clientUsers[clientId],
-            createdAt: new Date(dayDate.getTime() - 86400000 * randInt(1, 3)),
-          },
-        })
-
-        allAcceptedBookingIds.push(booking.id)
-        if (product.isHazardous) hazardousBookingIds.push(booking.id)
-
-        // Bay allocation
-        await prisma.bookingBayAllocation.create({
-          data: {
-            bookingId: booking.id,
-            bayId: bayRecords[bayCode],
-            allocatedByUserId: terminalAdmin.id,
-            allocatedAt: new Date(dayDate.getTime() - 86400000),
-          },
-        })
-
-        // TruckTrip
-        const truckTrip = await prisma.truckTrip.create({
-          data: {
-            bookingId: booking.id,
-            truckNumber: genTruckNo(truckIdx),
-            driverName: genDriverName(truckIdx),
-            driverPhone: genDriverPhone(truckIdx),
-            qrToken: `qr-${bookingNo}-${truckIdx}`,
-            status: TruckTripStatus.COMPLETED,
-          },
-        })
-        truckIdx++
-
-        // Parse slot start time for gate event timestamps
         const [slotH, slotM] = SLOT_DEFS[slotIdx].start.split(':').map(Number)
         const checkInTime = new Date(dayDate)
         checkInTime.setHours(slotH, slotM + randInt(0, 25), randInt(0, 59))
-
         const checkOutTime = new Date(checkInTime)
         checkOutTime.setMinutes(checkOutTime.getMinutes() + randInt(30, 90))
-
         const tare = parseFloat((randInt(80, 140) * 100 / 100).toFixed(1))
         const gross = parseFloat((tare + qty + randInt(-2, 2)).toFixed(1))
         const net = parseFloat((gross - tare).toFixed(1))
 
-        // CHECK_IN
-        await prisma.gateEvent.create({
-          data: {
-            truckTripId: truckTrip.id,
-            type: GateEventType.CHECK_IN,
-            timestamp: checkInTime,
-            securityUserId: securityUser.id,
-            photoTruckUrl: `/photos/truck-${bookingNo}-in.jpg`,
-            photoDriverUrl: `/photos/driver-${bookingNo}-in.jpg`,
-            weighmentTare: tare,
-          },
-        })
-
-        // CHECK_OUT
-        await prisma.gateEvent.create({
-          data: {
-            truckTripId: truckTrip.id,
-            type: GateEventType.CHECK_OUT,
-            timestamp: checkOutTime,
-            securityUserId: securityUser.id,
-            photoTruckUrl: `/photos/truck-${bookingNo}-out.jpg`,
-            weighmentGross: gross,
-            netQuantity: net,
-          },
+        acceptedEntries.push({
+          bookingNo, clientId, bayCode, product, transporterId, timeSlotId, qty,
+          isBulk: rng() < 0.1,
+          createdAt: new Date(dayDate.getTime() - 86400000 * randInt(1, 3)),
+          truckNo: genTruckNo(localTruckIdx), driverName: genDriverName(localTruckIdx),
+          driverPhone: genDriverPhone(localTruckIdx),
+          qrToken: `qr-${bookingNo}-${localTruckIdx}`, localTruckIdx,
+          slotH, slotM, checkInTime, checkOutTime, tare, gross, net,
         })
       }
     }
 
-    // ── Rejected bookings for this day ──
+    // ── Pre-compute rejected bookings for this day ──
     for (let r = 0; r < dt.rejected; r++) {
       bookingCounter++
       const clientId = shuffledClientRej[clientRejIdx++]
@@ -532,55 +509,113 @@ async function main() {
       const slotIdx = randInt(0, SLOT_DEFS.length - 1)
       const slotKey = `${dt.dateStr}|${SLOT_DEFS[slotIdx].start}`
       const timeSlotId = timeslotMap[slotKey]
+      const rejectedAtGate = rng() < 0.35
 
-      const rejectedAtGate = rng() < 0.35 // 35% rejected at gate, rest before arrival
-
-      const booking = await prisma.booking.create({
-        data: {
-          bookingNo,
-          terminalId: terminal.id,
-          clientId,
-          productId: product.id,
-          quantityRequested: qty,
-          date: dayDate,
-          timeSlotId,
-          transporterId: pick(transporterIds),
-          status: BookingStatus.REJECTED,
-          isBulk: false,
-          createdByUserId: clientUsers[clientId],
-          createdAt: new Date(dayDate.getTime() - 86400000 * randInt(1, 3)),
-        },
-      })
+      const entry: RejectedEntry = {
+        bookingNo, clientId, product,
+        transporterId: pick(transporterIds), timeSlotId, qty,
+        createdAt: new Date(dayDate.getTime() - 86400000 * randInt(1, 3)),
+        rejectedAtGate,
+      }
 
       if (rejectedAtGate) {
-        const trip = await prisma.truckTrip.create({
-          data: {
-            bookingId: booking.id,
-            truckNumber: genTruckNo(truckIdx),
-            driverName: genDriverName(truckIdx),
-            driverPhone: genDriverPhone(truckIdx),
-            qrToken: `qr-${bookingNo}-${truckIdx}`,
-            status: TruckTripStatus.QR_ISSUED,
-          },
-        })
-        truckIdx++
-
+        const localTruckIdx = truckIdx++
         const [slotH, slotM] = SLOT_DEFS[slotIdx].start.split(':').map(Number)
         const arrTime = new Date(dayDate)
         arrTime.setHours(slotH, slotM + randInt(0, 25), randInt(0, 59))
-
         const reasons = ['Slot missed', 'Safety check failed', 'Documentation incomplete', 'Vehicle condition unsatisfactory', 'Overweight']
-        await prisma.gateEvent.create({
+        entry.truckNo = genTruckNo(localTruckIdx)
+        entry.driverName = genDriverName(localTruckIdx)
+        entry.driverPhone = genDriverPhone(localTruckIdx)
+        entry.qrToken = `qr-${bookingNo}-${localTruckIdx}`
+        entry.localTruckIdx = localTruckIdx
+        entry.slotH = slotH; entry.slotM = slotM
+        entry.arrTime = arrTime
+        entry.reason = pick(reasons)
+      }
+      rejectedEntries.push(entry)
+    }
+
+    // ── Execute all DB writes for this day in a single transaction ──
+    await retry(() => prisma.$transaction(async (tx) => {
+      for (const e of acceptedEntries) {
+        const booking = await tx.booking.create({
           data: {
-            truckTripId: trip.id,
-            type: GateEventType.CHECK_IN,
-            timestamp: arrTime,
-            securityUserId: securityUser.id,
-            payloadJson: { rejectedAtGate: true, reason: pick(reasons) },
+            bookingNo: e.bookingNo, terminalId: terminal.id, clientId: e.clientId,
+            productId: e.product.id, quantityRequested: e.qty, date: dayDate,
+            timeSlotId: e.timeSlotId, transporterId: e.transporterId,
+            status: BookingStatus.CLOSED, isBulk: e.isBulk,
+            createdByUserId: clientUsers[e.clientId], createdAt: e.createdAt,
+          },
+        })
+        allAcceptedBookingIds.push(booking.id)
+        if (e.product.isHazardous) hazardousBookingIds.push(booking.id)
+
+        await tx.bookingBayAllocation.create({
+          data: {
+            bookingId: booking.id, bayId: bayRecords[e.bayCode],
+            allocatedByUserId: terminalAdmin.id,
+            allocatedAt: new Date(dayDate.getTime() - 86400000),
+          },
+        })
+
+        const truckTrip = await tx.truckTrip.create({
+          data: {
+            bookingId: booking.id, truckNumber: e.truckNo, driverName: e.driverName,
+            driverPhone: e.driverPhone, qrToken: e.qrToken,
+            status: TruckTripStatus.COMPLETED,
+          },
+        })
+
+        await tx.gateEvent.create({
+          data: {
+            truckTripId: truckTrip.id, type: GateEventType.CHECK_IN,
+            timestamp: e.checkInTime, securityUserId: securityUser.id,
+            photoTruckUrl: `/photos/truck-${e.bookingNo}-in.jpg`,
+            photoDriverUrl: `/photos/driver-${e.bookingNo}-in.jpg`,
+            weighmentTare: e.tare,
+          },
+        })
+
+        await tx.gateEvent.create({
+          data: {
+            truckTripId: truckTrip.id, type: GateEventType.CHECK_OUT,
+            timestamp: e.checkOutTime, securityUserId: securityUser.id,
+            photoTruckUrl: `/photos/truck-${e.bookingNo}-out.jpg`,
+            weighmentGross: e.gross, netQuantity: e.net,
           },
         })
       }
-    }
+
+      for (const e of rejectedEntries) {
+        const booking = await tx.booking.create({
+          data: {
+            bookingNo: e.bookingNo, terminalId: terminal.id, clientId: e.clientId,
+            productId: e.product.id, quantityRequested: e.qty, date: dayDate,
+            timeSlotId: e.timeSlotId, transporterId: e.transporterId,
+            status: BookingStatus.REJECTED, isBulk: false,
+            createdByUserId: clientUsers[e.clientId], createdAt: e.createdAt,
+          },
+        })
+
+        if (e.rejectedAtGate) {
+          const trip = await tx.truckTrip.create({
+            data: {
+              bookingId: booking.id, truckNumber: e.truckNo!, driverName: e.driverName!,
+              driverPhone: e.driverPhone!, qrToken: e.qrToken!,
+              status: TruckTripStatus.QR_ISSUED,
+            },
+          })
+          await tx.gateEvent.create({
+            data: {
+              truckTripId: trip.id, type: GateEventType.CHECK_IN,
+              timestamp: e.arrTime!, securityUserId: securityUser.id,
+              payloadJson: { rejectedAtGate: true, reason: e.reason },
+            },
+          })
+        }
+      }
+    }, { timeout: 60000 }))
 
     if (dayIdx % 5 === 0) {
       console.log(`  Day ${dt.dayOfMonth} Jan: ${dt.accepted} accepted, ${dt.rejected} rejected`)
@@ -592,22 +627,28 @@ async function main() {
   // ─── Safety Checklists ────────────────────────────────────────────────
   console.log('🛡️ Creating safety data...')
   const hazardousForChecklist = shuffle(hazardousBookingIds).slice(0, Math.ceil(hazardousBookingIds.length * 0.6))
-  for (const bId of hazardousForChecklist) {
-    const passed = rng() < 0.88
-    await prisma.safetyChecklist.create({
-      data: {
-        bookingId: bId,
-        createdByHseId: hseUser.id,
-        status: passed ? ChecklistStatus.PASSED : ChecklistStatus.FAILED,
-        checklistJson: {
-          ppe: true,
-          earthing: passed,
-          leakCheck: passed,
-          fireSystemReadiness: passed || rng() < 0.5,
-          additionalNotes: passed ? 'All checks passed' : 'Failed earthing/leak check',
-        },
-      },
-    })
+  // Batch safety checklists in chunks of 50
+  for (let i = 0; i < hazardousForChecklist.length; i += 50) {
+    const chunk = hazardousForChecklist.slice(i, i + 50)
+    await retry(() => prisma.$transaction(async (tx) => {
+      for (const bId of chunk) {
+        const passed = rng() < 0.88
+        await tx.safetyChecklist.create({
+          data: {
+            bookingId: bId,
+            createdByHseId: hseUser.id,
+            status: passed ? ChecklistStatus.PASSED : ChecklistStatus.FAILED,
+            checklistJson: {
+              ppe: true,
+              earthing: passed,
+              leakCheck: passed,
+              fireSystemReadiness: passed || rng() < 0.5,
+              additionalNotes: passed ? 'All checks passed' : 'Failed earthing/leak check',
+            },
+          },
+        })
+      }
+    }, { timeout: 30000 }))
   }
   console.log(`  ${hazardousForChecklist.length} safety checklists created`)
 
