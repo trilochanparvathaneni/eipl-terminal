@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(
@@ -16,6 +17,10 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const dateFrom = url.searchParams.get('dateFrom')
     const dateTo = url.searchParams.get('dateTo')
+    if (user!.role !== Role.SUPER_ADMIN) {
+      const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+      if (terminalAccessError) return terminalAccessError
+    }
 
     const allocationWhere: any = {}
     if (dateFrom || dateTo) {
@@ -25,6 +30,9 @@ export async function GET(req: NextRequest) {
     }
 
     const bays = await prisma.bay.findMany({
+      where: user!.role === Role.SUPER_ADMIN
+        ? {}
+        : { gantry: { terminalId: user!.terminalId! } },
       include: {
         gantry: {
           include: {

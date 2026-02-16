@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth-utils'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function POST(
   req: NextRequest,
@@ -42,6 +43,8 @@ export async function POST(
         { status: 400 }
       )
     }
+    const terminalAccessError = enforceTerminalAccess(user!, stopWorkOrder.booking.terminalId)
+    if (terminalAccessError) return terminalAccessError
 
     const now = new Date()
 

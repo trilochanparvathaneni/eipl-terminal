@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { createAuditLog } from '@/lib/audit'
 import { Role, IncidentStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function POST(
   req: NextRequest,
@@ -33,6 +34,9 @@ export async function POST(
         { status: 404 }
       )
     }
+
+    const terminalAccessError = enforceTerminalAccess(user!, incident.terminalId)
+    if (terminalAccessError) return terminalAccessError
 
     if (incident.status === IncidentStatus.CLOSED) {
       return NextResponse.json(

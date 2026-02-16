@@ -5,6 +5,7 @@ import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { canTransition } from '@/lib/booking-state'
 import { Role, BookingStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 // Terminal Admin schedules a booking: allocate slot + bay, move to OPS_SCHEDULED
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -21,6 +22,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
+
+  const terminalAccessError = enforceTerminalAccess(user!, booking.terminalId)
+  if (terminalAccessError) return terminalAccessError
 
   // Validate bay/product mapping
   if (bayId) {
@@ -46,7 +50,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const updateData: any = { status: targetStatus }
-  if (timeSlotId) updateData.timeSlotId = timeSlotId
+  if (timeSlotId) {
+    const slot = await prisma.timeSlot.findUnique({
+      where: { id: timeSlotId },
+      select: { id: true, terminalId: true, capacityTrucks: true },
+    })
+    if (!slot || slot.terminalId !== booking.terminalId) {
+      return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 })
+    }
+
+    const existingCount = await prisma.booking.count({
+      where: {
+        timeSlotId,
+        id: { not: booking.id },
+      },
+    })
+    if (existingCount >= slot.capacityTrucks) {
+      return NextResponse.json({ error: 'Time slot is full' }, { status: 400 })
+    }
+
+    updateData.timeSlotId = timeSlotId
+  }
 
   const updated = await prisma.booking.update({
     where: { id: params.id },

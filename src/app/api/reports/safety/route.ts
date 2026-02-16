@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(
@@ -16,12 +17,24 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const dateFrom = url.searchParams.get('dateFrom')
     const dateTo = url.searchParams.get('dateTo')
+    if (user!.role !== Role.SUPER_ADMIN) {
+      const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+      if (terminalAccessError) return terminalAccessError
+    }
 
     const dateFilter: any = {}
     if (dateFrom || dateTo) {
       dateFilter.createdAt = {}
       if (dateFrom) dateFilter.createdAt.gte = new Date(dateFrom)
       if (dateTo) dateFilter.createdAt.lte = new Date(dateTo)
+    }
+    const checklistWhere: any = { ...dateFilter }
+    const stopWorkWhere: any = { ...dateFilter }
+    const incidentWhere: any = { ...dateFilter }
+    if (user!.role !== Role.SUPER_ADMIN) {
+      checklistWhere.booking = { terminalId: user!.terminalId! }
+      stopWorkWhere.booking = { terminalId: user!.terminalId! }
+      incidentWhere.terminalId = user!.terminalId!
     }
 
     const [
@@ -32,18 +45,18 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       prisma.safetyChecklist.groupBy({
         by: ['status'],
-        where: dateFilter,
+        where: checklistWhere,
         _count: { status: true },
       }),
       prisma.stopWorkOrder.count({
-        where: dateFilter,
+        where: stopWorkWhere,
       }),
       prisma.stopWorkOrder.count({
-        where: { ...dateFilter, active: true },
+        where: { ...stopWorkWhere, active: true },
       }),
       prisma.incident.groupBy({
         by: ['severity'],
-        where: dateFilter,
+        where: incidentWhere,
         _count: { severity: true },
       }),
     ])

@@ -52,6 +52,29 @@ export const P = {
 
   // ── Tenant admin ────────────────────────────────────────────────────────
   TENANT_READ: "tenant:read",
+
+  // ── Traffic Controller / AI Operations ────────────────────────────────
+  CONTROLLER_CONSOLE: "controller:console",
+  CONTROLLER_ASSIGN_BAY: "controller:assign_bay",
+  CONTROLLER_ASSIGN_ARM: "controller:assign_arm",
+  CONTROLLER_LOCK_BAY: "controller:lock_bay",
+  CONTROLLER_UPDATE_ETA: "controller:update_eta",
+  CONTROLLER_RESEQUENCE: "controller:resequence",
+  CONTROLLER_MARK_NOSHOW: "controller:mark_noshow",
+  CONTROLLER_RECLASSIFY: "controller:reclassify",
+  CHANGEOVER_SET_READY: "changeover:set_ready",
+  AI_READ: "ai:read",
+
+  // ── Documents / Compliance ─────────────────────────────────────────────
+  DOCUMENT_UPLOAD: "document:upload",
+  DOCUMENT_READ: "document:read",
+  DOCUMENT_VERIFY: "document:verify",
+  DOCUMENT_REJECT: "document:reject",
+  COMPLIANCE_EVALUATE: "compliance:evaluate",
+  COMPLIANCE_READ: "compliance:read",
+  CUSTODY_TRANSITION: "custody:transition",
+  EVIDENCE_GENERATE: "evidence:generate",
+  EVIDENCE_READ: "evidence:read",
 } as const
 
 export type Permission = (typeof P)[keyof typeof P]

@@ -15,6 +15,7 @@
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
     "test:watch": "vitest",
+    "health:demo": "powershell -ExecutionPolicy Bypass -File scripts/health-check.ps1",
     "postinstall": "prisma generate"
   },
   "dependencies": {

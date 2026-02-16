@@ -6,6 +6,7 @@ import { canTransition, isModifiable, isCancellable } from '@/lib/booking-state'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireAuth()
@@ -38,6 +39,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (user!.role === Role.TRANSPORTER && booking.transporterId !== user!.transporterId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+  const terminalAccessError = enforceTerminalAccess(user!, booking.terminalId)
+  if (terminalAccessError && user!.role !== Role.CLIENT && user!.role !== Role.TRANSPORTER) {
+    return terminalAccessError
+  }
 
   return NextResponse.json(booking)
 }
@@ -52,6 +57,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
+  const terminalAccessError = enforceTerminalAccess(user!, booking.terminalId)
+  if (terminalAccessError && user!.role !== Role.CLIENT) return terminalAccessError
 
   const body = await req.json()
   const parsed = updateBookingSchema.safeParse(body)

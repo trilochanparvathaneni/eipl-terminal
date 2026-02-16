@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
-import { Role } from '@prisma/client'
+import { bookingScopeForUser } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
   if (error) return error
 
-  const where: any = {}
-
-  // Role-based filtering (same as list endpoint)
-  if (user!.role === Role.CLIENT && user!.clientId) {
-    where.clientId = user!.clientId
-  } else if (user!.role === Role.TRANSPORTER && user!.transporterId) {
-    where.transporterId = user!.transporterId
-  }
+  const scoped = bookingScopeForUser(user!)
+  if (scoped.error) return scoped.error
+  const where: any = { ...scoped.where }
 
   const [total, grouped] = await Promise.all([
     prisma.booking.count({ where }),

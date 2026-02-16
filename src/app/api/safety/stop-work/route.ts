@@ -5,9 +5,17 @@ import { stopWorkOrderSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
-  const { user, error } = await requireAuth()
+  const { user, error } = await requireAuth(
+    Role.HSE_OFFICER,
+    Role.TERMINAL_ADMIN,
+    Role.SUPER_ADMIN,
+    Role.SECURITY,
+    Role.AUDITOR,
+    Role.SURVEYOR
+  )
   if (error) return error
 
   const url = new URL(req.url)
@@ -17,6 +25,11 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(url.searchParams.get('limit') || '20')
 
   const where: any = {}
+  if (user!.role !== Role.SUPER_ADMIN) {
+    const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+    if (terminalAccessError) return terminalAccessError
+    where.booking = { terminalId: user!.terminalId }
+  }
 
   if (bookingId) where.bookingId = bookingId
   if (active !== null && active !== undefined) {
@@ -81,6 +94,9 @@ export async function POST(req: NextRequest) {
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
+
+    const terminalAccessError = enforceTerminalAccess(user!, booking.terminalId)
+    if (terminalAccessError) return terminalAccessError
 
     const previousStatus = booking.status
 

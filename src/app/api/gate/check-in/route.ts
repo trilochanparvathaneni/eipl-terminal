@@ -5,10 +5,13 @@ import { gateCheckInSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole } from '@/lib/notifications'
 import { Role, BookingStatus, TruckTripStatus, GateEventType } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(Role.SECURITY)
   if (error) return error
+  const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+  if (terminalAccessError) return terminalAccessError
 
   const body = await req.json()
   const parsed = gateCheckInSchema.safeParse(body)
@@ -43,6 +46,8 @@ export async function POST(req: NextRequest) {
   if (!trip) {
     return NextResponse.json({ error: 'Truck trip not found' }, { status: 404 })
   }
+  const tripAccessError = enforceTerminalAccess(user!, trip.booking.terminalId)
+  if (tripAccessError) return tripAccessError
 
   // Check for active stop work orders
   if (trip.booking.stopWorkOrders.length > 0) {

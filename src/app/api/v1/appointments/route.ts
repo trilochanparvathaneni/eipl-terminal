@@ -3,6 +3,25 @@ import { authorize } from "@/lib/auth/authorize"
 import { P } from "@/lib/auth/permissions"
 import { prisma } from "@/lib/prisma"
 import { enqueueEvent } from "@/lib/outbox/publisher"
+import { Role } from "@prisma/client"
+
+function normalizeToTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+async function resolveTenantTerminalIds(tenantSlug: string): Promise<string[]> {
+  const terminals = await prisma.terminal.findMany({
+    select: { id: true, name: true },
+  })
+  return terminals
+    .filter((terminal) => normalizeToTokens(terminal.name).includes(tenantSlug.toLowerCase()))
+    .map((terminal) => terminal.id)
+}
 
 /**
  * GET /api/v1/appointments
@@ -18,15 +37,26 @@ export async function GET(request: NextRequest) {
   if (error) return error
 
   try {
-    // Tenant isolation: only return bookings whose terminal belongs to
-    // this tenant.  Until we have a tenantId FK on Terminal, we use the
-    // terminal name as a proxy (matches tenant slug convention).
+    const terminalIds = await resolveTenantTerminalIds(ctx.tenantSlug)
+    if (terminalIds.length === 0) {
+      return NextResponse.json({
+        requestId: ctx.requestId,
+        tenantSlug: ctx.tenantSlug,
+        count: 0,
+        appointments: [],
+      })
+    }
+
+    const where: any = { terminalId: { in: terminalIds } }
+    if (ctx.user.role === Role.CLIENT && ctx.user.clientId) {
+      where.clientId = ctx.user.clientId
+    }
+    if (ctx.user.role === Role.TRANSPORTER && ctx.user.transporterId) {
+      where.transporterId = ctx.user.transporterId
+    }
+
     const bookings = await prisma.booking.findMany({
-      where: {
-        terminal: {
-          name: { contains: ctx.tenantSlug, mode: "insensitive" },
-        },
-      },
+      where,
       take: 50,
       orderBy: { createdAt: "desc" },
       select: {
@@ -94,6 +124,32 @@ export async function POST(request: NextRequest) {
     }
 
     const bookingNo = `BK-${Date.now().toString(36).toUpperCase()}`
+    const terminalIds = await resolveTenantTerminalIds(ctx.tenantSlug)
+    if (!terminalIds.includes(terminalId)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "Terminal does not belong to current tenant.",
+            requestId: ctx.requestId,
+          },
+        },
+        { status: 403 }
+      )
+    }
+
+    if (ctx.user.role === Role.CLIENT && ctx.user.clientId && clientId !== ctx.user.clientId) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "Client user can only create appointments for own client account.",
+            requestId: ctx.requestId,
+          },
+        },
+        { status: 403 }
+      )
+    }
 
     const booking = await prisma.booking.create({
       data: {

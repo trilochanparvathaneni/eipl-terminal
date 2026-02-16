@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role, BookingStatus } from '@prisma/client'
+import { bookingScopeForUser } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(
@@ -23,7 +24,9 @@ export async function GET(req: NextRequest) {
     const clientId = url.searchParams.get('clientId')
     const productId = url.searchParams.get('productId')
 
-    const where: any = {}
+    const scoped = bookingScopeForUser(user!)
+    if (scoped.error) return scoped.error
+    const where: any = { ...scoped.where }
 
     if (status) where.status = status
     if (clientId) where.clientId = clientId

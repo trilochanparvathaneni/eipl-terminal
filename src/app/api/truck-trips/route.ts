@@ -6,6 +6,7 @@ import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus, TruckTripStatus } from '@prisma/client'
 import { randomUUID } from 'crypto'
+import { bookingScopeForUser, enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
@@ -14,11 +15,14 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const bookingId = url.searchParams.get('bookingId')
   const date = url.searchParams.get('date')
+  const custodyStage = url.searchParams.get('custodyStage')
+  const priorityClass = url.searchParams.get('priorityClass')
 
+  const scoped = bookingScopeForUser(user!)
+  if (scoped.error) return scoped.error
   const where: any = {}
-
-  if (user!.role === Role.TRANSPORTER && user!.transporterId) {
-    where.booking = { transporterId: user!.transporterId }
+  if (Object.keys(scoped.where).length > 0) {
+    where.booking = { ...(where.booking ?? {}), ...scoped.where }
   }
 
   if (bookingId) where.bookingId = bookingId
@@ -29,6 +33,9 @@ export async function GET(req: NextRequest) {
       date: new Date(date),
     }
   }
+
+  if (custodyStage) where.custodyStage = custodyStage
+  if (priorityClass) where.priorityClass = priorityClass
 
   const trips = await prisma.truckTrip.findMany({
     where,
@@ -43,6 +50,10 @@ export async function GET(req: NextRequest) {
         },
       },
       gateEvents: true,
+      complianceGates: {
+        orderBy: { evaluatedAt: 'desc' },
+        take: 3,
+      },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -75,6 +86,8 @@ export async function POST(req: NextRequest) {
   if (user!.role === Role.TRANSPORTER && booking.transporterId !== user!.transporterId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+  const terminalAccessError = enforceTerminalAccess(user!, booking.terminalId)
+  if (terminalAccessError) return terminalAccessError
 
   // Booking must be in appropriate status
   const allowedStatuses: string[] = [

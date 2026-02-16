@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
+import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
@@ -16,6 +18,10 @@ export async function GET(req: NextRequest) {
         { error: 'date and terminalId query params are required' },
         { status: 400 }
       )
+    }
+    if (user!.role !== Role.SUPER_ADMIN) {
+      const terminalAccessError = enforceTerminalAccess(user!, terminalId)
+      if (terminalAccessError) return terminalAccessError
     }
 
     const timeSlots = await prisma.timeSlot.findMany({

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
+import { Role } from '@prisma/client'
 import QRCode from 'qrcode'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireAuth()
@@ -18,6 +20,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   if (!trip || !trip.qrToken) {
     return NextResponse.json({ error: 'Trip not found or QR not issued' }, { status: 404 })
+  }
+  if (user!.role === Role.CLIENT && trip.booking.clientId !== user!.clientId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (user!.role === Role.TRANSPORTER && trip.booking.transporterId !== user!.transporterId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const terminalAccessError = enforceTerminalAccess(user!, trip.booking.terminalId)
+  if (terminalAccessError && user!.role !== Role.CLIENT && user!.role !== Role.TRANSPORTER) {
+    return terminalAccessError
   }
 
   // Generate QR code as data URL

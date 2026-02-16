@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(Role.SECURITY, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN)
   if (error) return error
+  if (user!.role !== Role.SUPER_ADMIN) {
+    const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+    if (terminalAccessError) return terminalAccessError
+  }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -16,6 +21,7 @@ export async function GET(req: NextRequest) {
     where: {
       booking: {
         date: { gte: today, lt: tomorrow },
+        ...(user!.role === Role.SUPER_ADMIN ? {} : { terminalId: user!.terminalId! }),
         status: {
           in: ['QR_ISSUED', 'ARRIVED_GATE', 'IN_TERMINAL', 'LOADED', 'EXITED', 'CLOSED'],
         },

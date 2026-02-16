@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 // Lookup a truck trip by QR token
 export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(Role.SECURITY, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN)
   if (error) return error
+  if (user!.role !== Role.SUPER_ADMIN) {
+    const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+    if (terminalAccessError) return terminalAccessError
+  }
 
   const { qrToken } = await req.json()
   if (!qrToken) {
@@ -36,6 +41,8 @@ export async function POST(req: NextRequest) {
   if (!trip) {
     return NextResponse.json({ error: 'Invalid QR code - trip not found' }, { status: 404 })
   }
+  const tripAccessError = enforceTerminalAccess(user!, trip.booking.terminalId)
+  if (tripAccessError) return tripAccessError
 
   return NextResponse.json(trip)
 }

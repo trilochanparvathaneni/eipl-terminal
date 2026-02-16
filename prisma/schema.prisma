@@ -16,6 +16,7 @@ enum Role {
   SURVEYOR
   HSE_OFFICER
   AUDITOR
+  TRAFFIC_CONTROLLER
 }
 
 enum ProductCategory {
@@ -78,6 +79,120 @@ enum NotificationChannel {
   IN_APP
 }
 
+// ── AI Operations Enums ─────────────────────────────────────────────────────
+
+enum BayStatus {
+  IDLE
+  OCCUPIED
+  BLOCKED
+  MAINTENANCE
+}
+
+enum ChangeoverState {
+  NOT_ALLOWED
+  NEEDS_CLEARANCE
+  READY_FOR_CHANGEOVER
+  IN_CHANGEOVER
+}
+
+enum PriorityClass {
+  APPOINTMENT
+  FCFS
+  RECLASSIFIED
+  BLOCKED
+}
+
+enum AIRecType {
+  BAY_ASSIGNMENT
+  QUEUE_RESEQUENCE
+  ETA_UPDATE
+}
+
+enum EtaSource {
+  MANUAL_HOURS_AWAY
+  LOCATION_SHARE
+  OPS_ESTIMATE
+}
+
+enum BayAllowedMode {
+  POL
+  LPG
+}
+
+enum ScheduleBlockStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ScheduleBlockSource {
+  AI_SUGGESTED
+  CONTROLLER_CONFIRMED
+  SYSTEM_DEFAULT
+}
+
+// ── Compliance Enums ────────────────────────────────────────────────────────
+
+enum CustodyStage {
+  GATE_CHECKIN
+  SAFETY_APPROVED
+  DOCUMENTS_VERIFIED
+  WEIGH_IN
+  READY_FOR_BAY
+  LOADING_STARTED
+  LOADING_COMPLETED
+  WEIGH_OUT
+  SEALED
+  CUSTODY_TRANSFERRED
+  EXITED
+}
+
+enum TripEventType {
+  STAGE_CHANGE
+  DOC_UPLOADED
+  DOC_VERIFIED
+  DOC_REJECTED
+  COMPLIANCE_BLOCKED
+  COMPLIANCE_CLEARED
+  STOP_WORK_ISSUED
+  STOP_WORK_RESOLVED
+  ARM_ASSIGNED
+  WEIGH_IN_RECORDED
+  WEIGH_OUT_RECORDED
+}
+
+enum DocumentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentLinkType {
+  BOOKING
+  TRUCK_TRIP
+  PRODUCT
+  CLIENT
+}
+
+enum ComplianceGateType {
+  SAFETY
+  DOCUMENTS
+  STOP_WORK
+  WEIGHMENT
+  SURVEYOR
+  CUSTOMS
+}
+
+enum ComplianceGateStatus {
+  PASS
+  FAIL
+  BLOCKED
+}
+
+// ── Core Models ─────────────────────────────────────────────────────────────
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -103,6 +218,11 @@ model User {
   incidentsReported    Incident[]          @relation("IncidentReporter")
   notifications        Notification[]
   auditLogs            AuditLog[]          @relation("AuditActor")
+  aiRecommendations    AIRecommendation[]  @relation("AICreator")
+  tripEvents           TripEvent[]         @relation("TripEventActor")
+  documentsVerified    DocumentRecord[]    @relation("DocVerifier")
+  complianceEvaluations ComplianceGateResult[] @relation("ComplianceEvaluator")
+  evidencePacksGenerated EvidencePack[]    @relation("EvidenceGenerator")
 
   @@index([role])
   @@index([email])
@@ -145,9 +265,15 @@ model Product {
   category    ProductCategory
   isHazardous Boolean         @default(false)
 
-  inventoryLots  InventoryLot[]
-  productBayMaps ProductBayMap[]
-  bookings       Booking[]
+  inventoryLots           InventoryLot[]
+  productBayMaps          ProductBayMap[]
+  bookings                Booking[]
+  bayCurrentProduct       Bay[]                @relation("BayCurrentProduct")
+  bayLastProduct          Bay[]                @relation("BayLastProduct")
+  compatibilityFrom       ProductCompatibility[] @relation("CompatFrom")
+  compatibilityTo         ProductCompatibility[] @relation("CompatTo")
+  armCurrentProduct       LoadingArm[]         @relation("ArmCurrentProduct")
+  armLastProduct          LoadingArm[]         @relation("ArmLastProduct")
 
   createdAt DateTime @default(now())
 }
@@ -193,17 +319,57 @@ model Gantry {
   @@index([terminalId])
 }
 
+// ── Bay (extended for AI operations) ────────────────────────────────────────
+
 model Bay {
-  id         String @id @default(cuid())
-  gantryId   String
-  name       String
-  uniqueCode String @unique
+  id               String          @id @default(cuid())
+  gantryId         String
+  name             String
+  uniqueCode       String          @unique
+  allowedMode      BayAllowedMode  @default(POL)
+  status           BayStatus       @default(IDLE)
+  currentProductId String?
+  lastProductId    String?
+  changeoverState  ChangeoverState @default(NOT_ALLOWED)
+  lastChangeoverAt DateTime?
+  lockedByTripId   String?
+  notes            String?
 
   gantry          Gantry              @relation(fields: [gantryId], references: [id])
+  currentProduct  Product?            @relation("BayCurrentProduct", fields: [currentProductId], references: [id])
+  lastProduct     Product?            @relation("BayLastProduct", fields: [lastProductId], references: [id])
+  lockedByTrip    TruckTrip?          @relation("BayLock", fields: [lockedByTripId], references: [id])
   productBayMaps  ProductBayMap[]
   bayAllocations  BookingBayAllocation[]
+  scheduleBlocks  BayScheduleBlock[]
+  loadingArms     LoadingArm[]
 
   @@index([gantryId])
+  @@index([status])
+}
+
+// ── Loading Arm (arm-level contamination control) ───────────────────────────
+
+model LoadingArm {
+  id               String          @id @default(cuid())
+  bayId            String
+  armNo            Int
+  name             String?
+  status           BayStatus       @default(IDLE)
+  currentProductId String?
+  lastProductId    String?
+  changeoverState  ChangeoverState @default(NOT_ALLOWED)
+  lastChangeoverAt DateTime?
+  lockedByTripId   String?
+  notes            String?
+
+  bay             Bay      @relation(fields: [bayId], references: [id])
+  currentProduct  Product? @relation("ArmCurrentProduct", fields: [currentProductId], references: [id])
+  lastProduct     Product? @relation("ArmLastProduct", fields: [lastProductId], references: [id])
+  bayAllocations  BookingBayAllocation[]
+
+  @@unique([bayId, armNo])
+  @@index([bayId])
 }
 
 model ProductBayMap {
@@ -218,12 +384,29 @@ model ProductBayMap {
   @@unique([productId, bayId])
 }
 
+// ── Product Compatibility (contamination rules) ─────────────────────────────
+
+model ProductCompatibility {
+  id                   String  @id @default(cuid())
+  fromProductId        String
+  toProductId          String
+  isCompatible         Boolean
+  requiresFullClearance Boolean @default(true)
+  minClearanceMinutes  Int     @default(60)
+  notes                String?
+
+  fromProduct Product @relation("CompatFrom", fields: [fromProductId], references: [id])
+  toProduct   Product @relation("CompatTo", fields: [toProductId], references: [id])
+
+  @@unique([fromProductId, toProductId])
+}
+
 model TimeSlot {
   id            String   @id @default(cuid())
   terminalId    String
   date          DateTime @db.Date
-  startTime     String   // HH:mm format
-  endTime       String   // HH:mm format
+  startTime     String
+  endTime       String
   capacityTrucks Int     @default(5)
 
   terminal Terminal  @relation(fields: [terminalId], references: [id])
@@ -260,6 +443,9 @@ model Booking {
   safetyChecklists  SafetyChecklist[]
   stopWorkOrders    StopWorkOrder[]
   incidents         Incident[]
+  tripEvents        TripEvent[]
+  complianceGates   ComplianceGateResult[]
+  evidencePacks     EvidencePack[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -275,33 +461,63 @@ model BookingBayAllocation {
   id              String   @id @default(cuid())
   bookingId       String
   bayId           String
+  armId           String?
   allocatedByUserId String
   allocatedAt     DateTime @default(now())
 
-  booking     Booking @relation(fields: [bookingId], references: [id])
-  bay         Bay     @relation(fields: [bayId], references: [id])
-  allocatedBy User    @relation("Allocator", fields: [allocatedByUserId], references: [id])
+  booking     Booking     @relation(fields: [bookingId], references: [id])
+  bay         Bay         @relation(fields: [bayId], references: [id])
+  arm         LoadingArm? @relation(fields: [armId], references: [id])
+  allocatedBy User        @relation("Allocator", fields: [allocatedByUserId], references: [id])
 
   @@index([bookingId])
+  @@index([bayId])
+  @@index([armId])
 }
 
-model TruckTrip {
-  id          String          @id @default(cuid())
-  bookingId   String
-  truckNumber String
-  driverName  String
-  driverPhone String
-  qrToken     String?         @unique
-  status      TruckTripStatus @default(PENDING)
+// ── TruckTrip (extended for compliance) ─────────────────────────────────────
 
-  booking    Booking     @relation(fields: [bookingId], references: [id])
-  gateEvents GateEvent[]
+model TruckTrip {
+  id                    String          @id @default(cuid())
+  bookingId             String
+  truckNumber           String
+  driverName            String
+  driverPhone           String
+  qrToken               String?         @unique
+  status                TruckTripStatus @default(PENDING)
+
+  // Custody & compliance fields
+  custodyStage          CustodyStage    @default(GATE_CHECKIN)
+
+  // AI operations fields
+  etaMinutes            Int?
+  etaSource             EtaSource?
+  etaUpdatedAt          DateTime?
+  appointmentStart      DateTime?
+  appointmentEnd        DateTime?
+  lateToleranceMinutes  Int             @default(45)
+  priorityClass         PriorityClass   @default(FCFS)
+  readyForBayAt         DateTime?
+  queuePosition         Int?
+  predictedStartTime    DateTime?
+  riskFlags             Json?
+
+  booking        Booking          @relation(fields: [bookingId], references: [id])
+  gateEvents     GateEvent[]
+  scheduleBlocks BayScheduleBlock[]
+  bayLocks       Bay[]            @relation("BayLock")
+  tripEvents     TripEvent[]
+  complianceGates ComplianceGateResult[]
+  evidencePacks  EvidencePack[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([bookingId])
   @@index([qrToken])
+  @@index([priorityClass])
+  @@index([status])
+  @@index([custodyStage])
 }
 
 model GateEvent {
@@ -323,6 +539,150 @@ model GateEvent {
   @@index([truckTripId])
   @@index([timestamp])
 }
+
+// ── Bay Schedule Block (availability timeline) ──────────────────────────────
+
+model BayScheduleBlock {
+  id             String              @id @default(cuid())
+  bayId          String
+  truckTripId    String
+  startPlannedAt DateTime
+  endPlannedAt   DateTime
+  startActualAt  DateTime?
+  endActualAt    DateTime?
+  status         ScheduleBlockStatus @default(PLANNED)
+  source         ScheduleBlockSource @default(SYSTEM_DEFAULT)
+
+  bay       Bay       @relation(fields: [bayId], references: [id])
+  truckTrip TruckTrip @relation(fields: [truckTripId], references: [id])
+
+  @@index([bayId, startPlannedAt])
+  @@index([truckTripId])
+  @@index([status])
+}
+
+// ── AI Recommendation (audit trail) ─────────────────────────────────────────
+
+model AIRecommendation {
+  id              String    @id @default(cuid())
+  type            AIRecType
+  inputSnapshot   Json
+  outputJson      Json
+  confidence      Float?
+  reasonCodes     String[]
+  createdByUserId String
+  appliedAt       DateTime?
+  appliedByAction String?
+
+  createdBy User @relation("AICreator", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ── Trip Event Ledger (append-only, immutable) ──────────────────────────────
+
+model TripEvent {
+  id            String        @id @default(cuid())
+  truckTripId   String
+  bookingId     String?
+  type          TripEventType
+  stage         CustodyStage?
+  message       String?
+  payloadJson   Json?
+  actorUserId   String
+  createdAt     DateTime      @default(now())
+
+  truckTrip TruckTrip @relation(fields: [truckTripId], references: [id])
+  booking   Booking?  @relation(fields: [bookingId], references: [id])
+  actor     User      @relation("TripEventActor", fields: [actorUserId], references: [id])
+
+  @@index([truckTripId, createdAt])
+}
+
+// ── Document Governance ─────────────────────────────────────────────────────
+
+model DocumentType {
+  id             String           @id @default(cuid())
+  code           String           @unique
+  name           String
+  description    String?
+  isMandatory    Boolean          @default(false)
+  expiryRequired Boolean          @default(false)
+  versioned      Boolean          @default(true)
+  allowedLinkTypes DocumentLinkType[]
+  createdAt      DateTime         @default(now())
+
+  documents DocumentRecord[]
+}
+
+model DocumentRecord {
+  id                 String                     @id @default(cuid())
+  documentTypeId     String
+  linkType           DocumentLinkType
+  linkId             String
+  version            Int                        @default(1)
+  fileUrl            String
+  checksum           String?
+  extractedMetadata  Json?
+  verificationStatus DocumentVerificationStatus @default(PENDING)
+  verifiedByUserId   String?
+  verifiedAt         DateTime?
+  expiryDate         DateTime?
+  rejectionReason    String?
+
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id])
+  verifiedBy   User?        @relation("DocVerifier", fields: [verifiedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([linkType, linkId])
+  @@index([documentTypeId, verificationStatus])
+}
+
+// ── Compliance Gate Results ─────────────────────────────────────────────────
+
+model ComplianceGateResult {
+  id              String               @id @default(cuid())
+  truckTripId     String
+  bookingId       String?
+  gateType        ComplianceGateType
+  status          ComplianceGateStatus
+  reason          String?
+  detailsJson     Json?
+  evaluatedByUserId String?
+  evaluatedAt     DateTime             @default(now())
+
+  truckTrip   TruckTrip @relation(fields: [truckTripId], references: [id])
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  evaluatedBy User?     @relation("ComplianceEvaluator", fields: [evaluatedByUserId], references: [id])
+
+  @@index([truckTripId, gateType])
+}
+
+// ── Evidence Pack ───────────────────────────────────────────────────────────
+
+model EvidencePack {
+  id                String   @id @default(cuid())
+  truckTripId       String
+  bookingId         String?
+  status            String   @default("GENERATED")
+  fileUrl           String?
+  sha256            String?
+  generatedByUserId String?
+  generatedAt       DateTime @default(now())
+
+  truckTrip   TruckTrip @relation(fields: [truckTripId], references: [id])
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  generatedBy User?     @relation("EvidenceGenerator", fields: [generatedByUserId], references: [id])
+
+  @@index([truckTripId, generatedAt])
+}
+
+// ── Safety Models ───────────────────────────────────────────────────────────
 
 model SafetyChecklist {
   id             String          @id @default(cuid())

@@ -9,6 +9,15 @@ import {
   IncidentSeverity,
   IncidentStatus,
   NotificationChannel,
+  BayStatus,
+  ChangeoverState,
+  CustodyStage,
+  TripEventType,
+  DocumentVerificationStatus,
+  DocumentLinkType,
+  ComplianceGateType,
+  ComplianceGateStatus,
+  PriorityClass,
 } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
@@ -27,11 +36,29 @@ async function retry<T>(fn: () => Promise<T>, retries = 3, delayMs = 2000): Prom
       return await fn()
     } catch (err: any) {
       if (i === retries - 1) throw err
-      console.log(`  ⚠ Connection error, retrying in ${delayMs}ms... (attempt ${i + 2}/${retries})`)
+      console.log(`  Warning: Connection error, retrying in ${delayMs}ms... (attempt ${i + 2}/${retries})`)
       await new Promise((r) => setTimeout(r, delayMs))
     }
   }
   throw new Error('Unreachable')
+}
+
+function isDeadlockError(err: unknown): boolean {
+  const msg = String((err as any)?.message ?? '')
+  return msg.includes('40P01') || msg.toLowerCase().includes('deadlock detected')
+}
+
+async function retryOnDeadlock<T>(fn: () => Promise<T>, label: string, retries = 5, delayMs = 1200): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (!isDeadlockError(err) || i === retries - 1) throw err
+      console.log(`  Warning: deadlock during ${label}, retrying (${i + 2}/${retries})...`)
+      await new Promise((r) => setTimeout(r, delayMs))
+    }
+  }
+  throw new Error(`Unreachable deadlock retry path for ${label}`)
 }
 
 // ─── Deterministic PRNG (Mulberry32) ───────────────────────────────────────
@@ -160,30 +187,46 @@ function genDriverPhone(idx: number): string {
 
 // ─── Main seed ─────────────────────────────────────────────────────────────
 async function main() {
-  console.log('🔄 Wiping database for fresh seed...')
+  console.log('Wiping database for fresh seed...')
 
-  // Delete in correct order (children first)
-  await prisma.auditLog.deleteMany()
-  await prisma.notification.deleteMany()
-  await prisma.incident.deleteMany()
-  await prisma.stopWorkOrder.deleteMany()
-  await prisma.safetyChecklist.deleteMany()
-  await prisma.gateEvent.deleteMany()
-  await prisma.truckTrip.deleteMany()
-  await prisma.bookingBayAllocation.deleteMany()
-  await prisma.booking.deleteMany()
-  await prisma.timeSlot.deleteMany()
-  await prisma.inventoryLot.deleteMany()
-  await prisma.productBayMap.deleteMany()
-  await prisma.bay.deleteMany()
-  await prisma.gantry.deleteMany()
-  await prisma.user.deleteMany()
-  await prisma.transporter.deleteMany()
-  await prisma.client.deleteMany()
-  await prisma.product.deleteMany()
-  await prisma.terminal.deleteMany()
+  await retryOnDeadlock(
+    () =>
+      prisma.$executeRawUnsafe(`
+        TRUNCATE TABLE
+          "EvidencePack",
+          "ComplianceGateResult",
+          "TripEvent",
+          "DocumentRecord",
+          "DocumentType",
+          "AuditLog",
+          "Notification",
+          "Incident",
+          "StopWorkOrder",
+          "SafetyChecklist",
+          "GateEvent",
+          "BayScheduleBlock",
+          "AIRecommendation",
+          "TruckTrip",
+          "BookingBayAllocation",
+          "Booking",
+          "TimeSlot",
+          "InventoryLot",
+          "ProductBayMap",
+          "ProductCompatibility",
+          "LoadingArm",
+          "Bay",
+          "Gantry",
+          "User",
+          "Transporter",
+          "Client",
+          "Product",
+          "Terminal"
+        RESTART IDENTITY CASCADE
+      `),
+    'truncate all domain tables'
+  )
 
-  console.log('✅ Database wiped')
+  console.log('Database wiped')
 
   const hash = (pw: string) => bcrypt.hashSync(pw, 10)
   const pw = hash('password123')
@@ -196,22 +239,10 @@ async function main() {
   // ─── Gantries ─────────────────────────────────────────────────────────
   const gantry1 = await prisma.gantry.create({ data: { terminalId: terminal.id, name: 'Gantry 1' } })
   const gantry2 = await prisma.gantry.create({ data: { terminalId: terminal.id, name: 'Gantry 2' } })
+  const gantry3 = await prisma.gantry.create({ data: { terminalId: terminal.id, name: 'LPG Gantry' } })
   const gantryMap: Record<number, string> = { 1: gantry1.id, 2: gantry2.id }
 
-  // ─── Bays ─────────────────────────────────────────────────────────────
-  const bayRecords: Record<string, string> = {} // code -> id
-  for (const bd of BAY_DEFS) {
-    const bay = await prisma.bay.create({
-      data: {
-        gantryId: gantryMap[bd.gantry],
-        name: bd.name,
-        uniqueCode: bd.code,
-      },
-    })
-    bayRecords[bd.code] = bay.id
-  }
-
-  // ─── Products ─────────────────────────────────────────────────────────
+  // ─── Products (extended) ──────────────────────────────────────────────
   const methanol = await prisma.product.create({
     data: { name: 'Methanol', category: ProductCategory.CHEMICAL, isHazardous: true },
   })
@@ -219,22 +250,254 @@ async function main() {
     data: { name: 'LPG', category: ProductCategory.LPG, isHazardous: true },
   })
   const hsd = await prisma.product.create({
-    data: { name: 'HSD (High Speed Diesel)', category: ProductCategory.POL, isHazardous: true },
+    data: { name: 'HSD', category: ProductCategory.POL, isHazardous: true },
   })
-  const products = [methanol, lpg, hsd]
+  const ldo = await prisma.product.create({
+    data: { name: 'LDO', category: ProductCategory.POL, isHazardous: true },
+  })
+  const acetone = await prisma.product.create({
+    data: { name: 'Acetone', category: ProductCategory.CHEMICAL, isHazardous: true },
+  })
+  const nhexane = await prisma.product.create({
+    data: { name: 'N-Hexane', category: ProductCategory.CHEMICAL, isHazardous: true },
+  })
+  const ms = await prisma.product.create({
+    data: { name: 'MS', category: ProductCategory.POL, isHazardous: true },
+  })
+  const acn = await prisma.product.create({
+    data: { name: 'ACN', category: ProductCategory.CHEMICAL, isHazardous: true },
+  })
+  const vam = await prisma.product.create({
+    data: { name: 'VAM', category: ProductCategory.CHEMICAL, isHazardous: true },
+  })
 
-  // ─── Product-Bay Mappings ─────────────────────────────────────────────
-  // Methanol → G1B03, G1B04 (primary overloaded bays)
-  // LPG → G1B05, G2B02
-  // HSD → G2B01, G2B03, G2B04, G1B02
-  // Spillover: G1B06, G1B07, G1B08 can take any product
+  // Keep the first 3 as primary products for historical bookings
+  const products = [methanol, lpg, hsd]
+  // All products lookup by name
+  const productByName: Record<string, typeof methanol> = {
+    Methanol: methanol, LPG: lpg, HSD: hsd, LDO: ldo,
+    Acetone: acetone, 'N-Hexane': nhexane, MS: ms, ACN: acn, VAM: vam,
+  }
+
+  // ─── Bays (Gantry-1: 8 bays, Gantry-2: 4 bays) ──────────────────────
+  // Gantry-1 must have 8 bays with 3 loading arms each
+  const g1Bays: Record<string, string> = {} // code -> id
+  for (let b = 1; b <= 8; b++) {
+    const code = `G1B${String(b).padStart(2, '0')}`
+    const bay = await prisma.bay.create({
+      data: {
+        gantryId: gantry1.id,
+        name: `Bay ${b}`,
+        uniqueCode: code,
+      },
+    })
+    g1Bays[code] = bay.id
+  }
+
+  // Gantry-2 bays
+  const g2Bays: Record<string, string> = {}
+  for (let b = 1; b <= 4; b++) {
+    const code = `G2B${String(b).padStart(2, '0')}`
+    const bay = await prisma.bay.create({
+      data: {
+        gantryId: gantry2.id,
+        name: `Bay ${b}`,
+        uniqueCode: code,
+      },
+    })
+    g2Bays[code] = bay.id
+  }
+
+  // LPG Gantry - 2 bays
+  const lpgBays: Record<string, string> = {}
+  for (let b = 1; b <= 2; b++) {
+    const code = `LPG${String(b).padStart(2, '0')}`
+    const bay = await prisma.bay.create({
+      data: {
+        gantryId: gantry3.id,
+        name: `LPG Bay ${b}`,
+        uniqueCode: code,
+        allowedMode: 'LPG',
+      },
+    })
+    lpgBays[code] = bay.id
+  }
+
+  // Combined bay records for all gantries
+  const bayRecords: Record<string, string> = { ...g1Bays, ...g2Bays, ...lpgBays }
+
+  // ─── Loading Arms for Gantry-1 (exact product assignments) ────────────
+  // Bay 1: Arm1=LDO, Arm2=Acetone, Arm3=N-Hexane
+  // Bay 2: Arm1=Methanol, Arm2=MS, Arm3=N-Hexane
+  // Bay 3: Arm1=Empty, Arm2=MS, Arm3=Empty
+  // Bay 4: Arm1=Methanol, Arm2=Empty, Arm3=Methanol
+  // Bay 5: Arm1=Methanol, Arm2=Empty, Arm3=Methanol
+  // Bay 6: Arm1=Methanol, Arm2=LDO, Arm3=Methanol
+  // Bay 7: Arm1=Empty, Arm2=HSD, Arm3=ACN
+  // Bay 8: Arm1=Empty, Arm2=HSD, Arm3=VAM
+
+  type ArmDef = { bayCode: string; armNo: number; product: string | null }
+  const armDefs: ArmDef[] = [
+    // Bay 1
+    { bayCode: 'G1B01', armNo: 1, product: 'LDO' },
+    { bayCode: 'G1B01', armNo: 2, product: 'Acetone' },
+    { bayCode: 'G1B01', armNo: 3, product: 'N-Hexane' },
+    // Bay 2
+    { bayCode: 'G1B02', armNo: 1, product: 'Methanol' },
+    { bayCode: 'G1B02', armNo: 2, product: 'MS' },
+    { bayCode: 'G1B02', armNo: 3, product: 'N-Hexane' },
+    // Bay 3
+    { bayCode: 'G1B03', armNo: 1, product: null },
+    { bayCode: 'G1B03', armNo: 2, product: 'MS' },
+    { bayCode: 'G1B03', armNo: 3, product: null },
+    // Bay 4
+    { bayCode: 'G1B04', armNo: 1, product: 'Methanol' },
+    { bayCode: 'G1B04', armNo: 2, product: null },
+    { bayCode: 'G1B04', armNo: 3, product: 'Methanol' },
+    // Bay 5
+    { bayCode: 'G1B05', armNo: 1, product: 'Methanol' },
+    { bayCode: 'G1B05', armNo: 2, product: null },
+    { bayCode: 'G1B05', armNo: 3, product: 'Methanol' },
+    // Bay 6
+    { bayCode: 'G1B06', armNo: 1, product: 'Methanol' },
+    { bayCode: 'G1B06', armNo: 2, product: 'LDO' },
+    { bayCode: 'G1B06', armNo: 3, product: 'Methanol' },
+    // Bay 7
+    { bayCode: 'G1B07', armNo: 1, product: null },
+    { bayCode: 'G1B07', armNo: 2, product: 'HSD' },
+    { bayCode: 'G1B07', armNo: 3, product: 'ACN' },
+    // Bay 8
+    { bayCode: 'G1B08', armNo: 1, product: null },
+    { bayCode: 'G1B08', armNo: 2, product: 'HSD' },
+    { bayCode: 'G1B08', armNo: 3, product: 'VAM' },
+  ]
+
+  for (const ad of armDefs) {
+    const prod = ad.product ? productByName[ad.product] : null
+    await prisma.loadingArm.create({
+      data: {
+        bayId: bayRecords[ad.bayCode],
+        armNo: ad.armNo,
+        name: `Arm ${ad.armNo}`,
+        currentProductId: prod?.id ?? null,
+        status: BayStatus.IDLE,
+        changeoverState: ad.product ? ChangeoverState.NOT_ALLOWED : ChangeoverState.READY_FOR_CHANGEOVER,
+      },
+    })
+  }
+
+  // Arms for Gantry-2 (2 arms per bay, generic)
+  for (const [code, bayId] of Object.entries(g2Bays)) {
+    for (let a = 1; a <= 2; a++) {
+      await prisma.loadingArm.create({
+        data: {
+          bayId,
+          armNo: a,
+          name: `Arm ${a}`,
+          status: BayStatus.IDLE,
+          changeoverState: ChangeoverState.READY_FOR_CHANGEOVER,
+        },
+      })
+    }
+  }
+
+  // Arms for LPG Gantry (1 arm per bay)
+  for (const [code, bayId] of Object.entries(lpgBays)) {
+    await prisma.loadingArm.create({
+      data: {
+        bayId,
+        armNo: 1,
+        name: 'LPG Arm',
+        currentProductId: lpg.id,
+        status: BayStatus.IDLE,
+        changeoverState: ChangeoverState.NOT_ALLOWED,
+      },
+    })
+  }
+
+  console.log('Loading arms created for all gantries')
+
+  // ─── Product Compatibility Matrix ──────────────────────────────────────
+  const compatDefs: { from: string; to: string; compatible: boolean; clearance: boolean; minutes: number; notes: string }[] = [
+    // Methanol with POL: incompatible
+    { from: 'Methanol', to: 'HSD', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL cross-contamination risk' },
+    { from: 'HSD', to: 'Methanol', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL cross-contamination risk' },
+    { from: 'Methanol', to: 'LPG', compatible: false, clearance: true, minutes: 180, notes: 'Methanol-LPG incompatible, fire risk' },
+    { from: 'LPG', to: 'Methanol', compatible: false, clearance: true, minutes: 180, notes: 'LPG-Methanol incompatible, fire risk' },
+    { from: 'Methanol', to: 'LDO', compatible: false, clearance: true, minutes: 90, notes: 'CHEMICAL-POL not permitted' },
+    { from: 'LDO', to: 'Methanol', compatible: false, clearance: true, minutes: 90, notes: 'POL-CHEMICAL not permitted' },
+    { from: 'Methanol', to: 'MS', compatible: false, clearance: true, minutes: 90, notes: 'CHEMICAL-POL not permitted' },
+    { from: 'MS', to: 'Methanol', compatible: false, clearance: true, minutes: 90, notes: 'POL-CHEMICAL not permitted' },
+
+    // LDO <-> HSD: incompatible (different POL grades)
+    { from: 'LDO', to: 'HSD', compatible: false, clearance: true, minutes: 60, notes: 'Different POL grades, contamination risk' },
+    { from: 'HSD', to: 'LDO', compatible: false, clearance: true, minutes: 60, notes: 'Different POL grades, contamination risk' },
+
+    // Acetone <-> N-Hexane: compatible with clearance (demonstrate changeover)
+    { from: 'Acetone', to: 'N-Hexane', compatible: true, clearance: true, minutes: 45, notes: 'Compatible solvents, clearance required' },
+    { from: 'N-Hexane', to: 'Acetone', compatible: true, clearance: true, minutes: 45, notes: 'Compatible solvents, clearance required' },
+
+    // MS <-> HSD: compatible (similar POL)
+    { from: 'MS', to: 'HSD', compatible: true, clearance: true, minutes: 30, notes: 'Similar POL grades, quick flush sufficient' },
+    { from: 'HSD', to: 'MS', compatible: true, clearance: true, minutes: 30, notes: 'Similar POL grades, quick flush sufficient' },
+
+    // ACN (chemical) incompatible with POL
+    { from: 'ACN', to: 'HSD', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL incompatible' },
+    { from: 'HSD', to: 'ACN', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL incompatible' },
+    { from: 'ACN', to: 'LDO', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL incompatible' },
+    { from: 'LDO', to: 'ACN', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL incompatible' },
+    { from: 'ACN', to: 'MS', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL incompatible' },
+    { from: 'MS', to: 'ACN', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL incompatible' },
+
+    // VAM (chemical) incompatible with POL
+    { from: 'VAM', to: 'HSD', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL incompatible' },
+    { from: 'HSD', to: 'VAM', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL incompatible' },
+    { from: 'VAM', to: 'LDO', compatible: false, clearance: true, minutes: 120, notes: 'CHEMICAL-POL incompatible' },
+    { from: 'LDO', to: 'VAM', compatible: false, clearance: true, minutes: 120, notes: 'POL-CHEMICAL incompatible' },
+
+    // Methanol <-> Acetone: compatible with clearance (both chemicals)
+    { from: 'Methanol', to: 'Acetone', compatible: true, clearance: true, minutes: 60, notes: 'Both chemicals, clearance changeover OK' },
+    { from: 'Acetone', to: 'Methanol', compatible: true, clearance: true, minutes: 60, notes: 'Both chemicals, clearance changeover OK' },
+
+    // Methanol <-> N-Hexane: compatible with clearance
+    { from: 'Methanol', to: 'N-Hexane', compatible: true, clearance: true, minutes: 60, notes: 'Both chemicals, clearance changeover OK' },
+    { from: 'N-Hexane', to: 'Methanol', compatible: true, clearance: true, minutes: 60, notes: 'Both chemicals, clearance changeover OK' },
+
+    // LDO <-> MS: compatible with clearance (similar POL)
+    { from: 'LDO', to: 'MS', compatible: true, clearance: true, minutes: 30, notes: 'Similar POL, quick flush' },
+    { from: 'MS', to: 'LDO', compatible: true, clearance: true, minutes: 30, notes: 'Similar POL, quick flush' },
+  ]
+
+  for (const cd of compatDefs) {
+    await prisma.productCompatibility.create({
+      data: {
+        fromProductId: productByName[cd.from].id,
+        toProductId: productByName[cd.to].id,
+        isCompatible: cd.compatible,
+        requiresFullClearance: cd.clearance,
+        minClearanceMinutes: cd.minutes,
+        notes: cd.notes,
+      },
+    })
+  }
+  console.log(`${compatDefs.length} product compatibility rules created`)
+
+  // ─── Product-Bay Mappings (coarse level, kept for backward compat) ────
   const productBayPairs: [typeof methanol, string][] = [
-    [methanol, 'G1B03'], [methanol, 'G1B04'], [methanol, 'G1B06'], [methanol, 'G1B07'], [methanol, 'G1B08'],
-    [lpg, 'G1B05'], [lpg, 'G2B02'], [lpg, 'G1B07'], [lpg, 'G1B08'],
-    [hsd, 'G2B01'], [hsd, 'G2B03'], [hsd, 'G2B04'], [hsd, 'G1B02'], [hsd, 'G1B06'],
+    [methanol, 'G1B03'], [methanol, 'G1B04'], [methanol, 'G1B05'], [methanol, 'G1B06'], [methanol, 'G1B07'], [methanol, 'G1B08'],
+    [lpg, 'LPG01'], [lpg, 'LPG02'],
+    [hsd, 'G2B01'], [hsd, 'G2B03'], [hsd, 'G2B04'], [hsd, 'G1B02'], [hsd, 'G1B07'], [hsd, 'G1B08'],
+    [ldo, 'G1B01'], [ldo, 'G1B06'],
+    [acetone, 'G1B01'],
+    [nhexane, 'G1B01'], [nhexane, 'G1B02'],
+    [ms, 'G1B02'], [ms, 'G1B03'],
+    [acn, 'G1B07'],
+    [vam, 'G1B08'],
   ]
   for (const [prod, code] of productBayPairs) {
-    await prisma.productBayMap.create({ data: { productId: prod.id, bayId: bayRecords[code] } })
+    if (bayRecords[code]) {
+      await prisma.productBayMap.create({ data: { productId: prod.id, bayId: bayRecords[code] } })
+    }
   }
 
   // ─── Clients ──────────────────────────────────────────────────────────
@@ -280,11 +543,14 @@ async function main() {
   const hseUser = await prisma.user.create({
     data: { name: 'HSE Officer Patel', email: 'hse@eipl.com', passwordHash: pw, role: Role.HSE_OFFICER, terminalId: terminal.id },
   })
-  await prisma.user.create({
+  const surveyorUser = await prisma.user.create({
     data: { name: 'Surveyor Sharma', email: 'surveyor@eipl.com', passwordHash: pw, role: Role.SURVEYOR, terminalId: terminal.id },
   })
   await prisma.user.create({
     data: { name: 'Auditor Singh', email: 'auditor@eipl.com', passwordHash: pw, role: Role.AUDITOR, terminalId: terminal.id },
+  })
+  const controllerUser = await prisma.user.create({
+    data: { name: 'Traffic Controller', email: 'controller@eipl.com', passwordHash: pw, role: Role.TRAFFIC_CONTROLLER, terminalId: terminal.id },
   })
 
   // Client users
@@ -315,7 +581,105 @@ async function main() {
     data: { name: 'Vizag Carriers Ops', email: 'ops@vizagcarriers.com', passwordHash: pw, role: Role.TRANSPORTER, transporterId: transporter3.id, terminalId: terminal.id },
   })
 
-  console.log('✅ Infrastructure + users created')
+  console.log('Infrastructure + users created')
+
+  // ─── Document Types ───────────────────────────────────────────────────
+  const docTypes = await Promise.all([
+    prisma.documentType.create({
+      data: {
+        code: 'MSDS',
+        name: 'Material Safety Data Sheet',
+        description: 'Safety data sheet for hazardous chemical products',
+        isMandatory: true,
+        expiryRequired: true,
+        versioned: true,
+        allowedLinkTypes: [DocumentLinkType.BOOKING, DocumentLinkType.PRODUCT],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'COA',
+        name: 'Certificate of Analysis',
+        description: 'Lab certificate confirming product quality and specs',
+        isMandatory: false,
+        expiryRequired: true,
+        versioned: true,
+        allowedLinkTypes: [DocumentLinkType.BOOKING, DocumentLinkType.PRODUCT],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'EX_BOND',
+        name: 'Ex-Bond Permission',
+        description: 'Customs clearance for bonded cargo release',
+        isMandatory: true,
+        expiryRequired: false,
+        versioned: false,
+        allowedLinkTypes: [DocumentLinkType.BOOKING],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'DELIVERY_ORDER',
+        name: 'Delivery Order',
+        description: 'Authorization to release product from terminal',
+        isMandatory: true,
+        expiryRequired: false,
+        versioned: false,
+        allowedLinkTypes: [DocumentLinkType.BOOKING],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'EWAY_BILL',
+        name: 'E-Way Bill',
+        description: 'GST transport document for goods movement',
+        isMandatory: true,
+        expiryRequired: true,
+        versioned: false,
+        allowedLinkTypes: [DocumentLinkType.BOOKING, DocumentLinkType.TRUCK_TRIP],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'SURVEY_REPORT',
+        name: 'Survey Report',
+        description: 'Independent surveyor report on quantity/quality',
+        isMandatory: false,
+        expiryRequired: false,
+        versioned: true,
+        allowedLinkTypes: [DocumentLinkType.BOOKING, DocumentLinkType.TRUCK_TRIP],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'SAFETY_CERT',
+        name: 'Vehicle Safety Certificate',
+        description: 'Valid safety fitness certificate for the tanker',
+        isMandatory: true,
+        expiryRequired: true,
+        versioned: false,
+        allowedLinkTypes: [DocumentLinkType.TRUCK_TRIP],
+      },
+    }),
+    prisma.documentType.create({
+      data: {
+        code: 'INSURANCE',
+        name: 'Insurance Certificate',
+        description: 'Vehicle/cargo insurance documents',
+        isMandatory: false,
+        expiryRequired: true,
+        versioned: false,
+        allowedLinkTypes: [DocumentLinkType.TRUCK_TRIP, DocumentLinkType.CLIENT],
+      },
+    }),
+  ])
+
+  const docTypeByCode: Record<string, string> = {}
+  for (const dt of docTypes) {
+    docTypeByCode[dt.code] = dt.id
+  }
+  console.log(`${docTypes.length} document types created`)
 
   // ─── TimeSlots for Jan 2025 ───────────────────────────────────────────
   const timeslotMap: Record<string, string> = {} // "YYYY-MM-DD|HH:MM" -> id
@@ -334,10 +698,9 @@ async function main() {
       timeslotMap[`${dateStr}|${sl.start}`] = ts.id
     }
   }
-  console.log(`✅ ${Object.keys(timeslotMap).length} timeslots created for ${JAN2025_ACTIVE_DAYS.length} active days`)
+  console.log(`${Object.keys(timeslotMap).length} timeslots created for ${JAN2025_ACTIVE_DAYS.length} active days`)
 
   // ─── Distribute bookings across days ──────────────────────────────────
-  // Build per-day targets
   interface DayTarget {
     date: Date
     dateStr: string
@@ -347,13 +710,12 @@ async function main() {
   }
 
   const overflowTotal = Object.values(OVERFLOW_DAYS)
-  const overflowAccepted = overflowTotal.reduce((s, v) => s + v.accepted, 0) // 399
-  const overflowRejected = overflowTotal.reduce((s, v) => s + v.rejected, 0) // 63
+  const overflowAccepted = overflowTotal.reduce((s, v) => s + v.accepted, 0)
+  const overflowRejected = overflowTotal.reduce((s, v) => s + v.rejected, 0)
   const normalDays = JAN2025_ACTIVE_DAYS.filter((d) => !OVERFLOW_DAYS[d.getDate()])
-  const remainAccepted = 811 - overflowAccepted // 412
-  const remainRejected = 273 - overflowRejected // 210
+  const remainAccepted = 811 - overflowAccepted
+  const remainRejected = 273 - overflowRejected
 
-  // Distribute remaining across normal days
   const normalDayTargets: DayTarget[] = []
   let accLeft = remainAccepted
   let rejLeft = remainRejected
@@ -385,23 +747,18 @@ async function main() {
     })),
   ].sort((a, b) => a.dayOfMonth - b.dayOfMonth)
 
-  // Verify totals
   const totalAcc = dayTargets.reduce((s, d) => s + d.accepted, 0)
   const totalRej = dayTargets.reduce((s, d) => s + d.rejected, 0)
-  console.log(`📊 Day distribution: ${totalAcc} accepted + ${totalRej} rejected = ${totalAcc + totalRej} total`)
+  console.log(`Day distribution: ${totalAcc} accepted + ${totalRej} rejected = ${totalAcc + totalRej} total`)
 
   // ─── Build per-slot accepted counts for the month ─────────────────────
-  // We need to distribute SLOT_ACCEPTED_TARGETS across 27 days
-  // For overflow days, concentrate more vehicles per slot
-  const slotDayAccepted: number[][] = [] // [dayIdx][slotIdx] = accepted count for that day+slot
+  const slotDayAccepted: number[][] = []
   for (const dt of dayTargets) {
     const dayAcc = dt.accepted
-    // Distribute this day's accepted across slots proportionally to SLOT_ACCEPTED_TARGETS
-    const totalTarget = SLOT_ACCEPTED_TARGETS.reduce((s, v) => s + v, 0) // 811
+    const totalTarget = SLOT_ACCEPTED_TARGETS.reduce((s, v) => s + v, 0)
     const raw = SLOT_ACCEPTED_TARGETS.map((t) => (t / totalTarget) * dayAcc)
     const rounded = raw.map((v) => Math.floor(v))
     let diff = dayAcc - rounded.reduce((s, v) => s + v, 0)
-    // Distribute remainder
     const fracs = raw.map((v, i) => ({ i, frac: v - rounded[i] })).sort((a, b) => b.frac - a.frac)
     for (let k = 0; k < diff; k++) {
       rounded[fracs[k].i]++
@@ -410,7 +767,6 @@ async function main() {
   }
 
   // ─── Build bay assignment pool ────────────────────────────────────────
-  // Create a pool of 811 bay codes according to BAY_DEFS targets
   const bayPool: string[] = []
   for (const bd of BAY_DEFS) {
     for (let i = 0; i < bd.target; i++) {
@@ -421,7 +777,6 @@ async function main() {
   let bayPoolIdx = 0
 
   // ─── Build client assignment pool ─────────────────────────────────────
-  // Create pools of accepted and rejected bookings per client
   const clientAccPool: string[] = []
   const clientRejPool: string[] = []
   for (const cr of clientRecords) {
@@ -434,17 +789,16 @@ async function main() {
   let clientRejIdx = 0
 
   // ─── Create all bookings ──────────────────────────────────────────────
-  console.log('📝 Creating bookings, trips, and gate events...')
+  console.log('Creating bookings, trips, and gate events...')
   let bookingCounter = 0
   let truckIdx = 0
-  const hazardousBookingIds: string[] = [] // for safety checklists
+  const hazardousBookingIds: string[] = []
   const allAcceptedBookingIds: string[] = []
 
   for (let dayIdx = 0; dayIdx < dayTargets.length; dayIdx++) {
     const dt = dayTargets[dayIdx]
     const dayDate = dt.date
 
-    // Pre-compute all data for this day before hitting DB
     interface AcceptedEntry {
       bookingNo: string; clientId: string; bayCode: string; product: typeof products[0];
       transporterId: string; timeSlotId: string; qty: number; isBulk: boolean;
@@ -463,7 +817,6 @@ async function main() {
     const acceptedEntries: AcceptedEntry[] = []
     const rejectedEntries: RejectedEntry[] = []
 
-    // ── Pre-compute accepted bookings for this day ──
     for (let slotIdx = 0; slotIdx < SLOT_DEFS.length; slotIdx++) {
       const count = slotDayAccepted[dayIdx][slotIdx]
       for (let v = 0; v < count; v++) {
@@ -499,7 +852,6 @@ async function main() {
       }
     }
 
-    // ── Pre-compute rejected bookings for this day ──
     for (let r = 0; r < dt.rejected; r++) {
       bookingCounter++
       const clientId = shuffledClientRej[clientRejIdx++]
@@ -536,8 +888,10 @@ async function main() {
       rejectedEntries.push(entry)
     }
 
-    // ── Execute all DB writes for this day in a single transaction ──
-    await retry(() => prisma.$transaction(async (tx) => {
+    const created = await retry(() => prisma.$transaction(async (tx) => {
+      const acceptedIds: string[] = []
+      const hazardousIds: string[] = []
+
       for (const e of acceptedEntries) {
         const booking = await tx.booking.create({
           data: {
@@ -548,8 +902,8 @@ async function main() {
             createdByUserId: clientUsers[e.clientId], createdAt: e.createdAt,
           },
         })
-        allAcceptedBookingIds.push(booking.id)
-        if (e.product.isHazardous) hazardousBookingIds.push(booking.id)
+        acceptedIds.push(booking.id)
+        if (e.product.isHazardous) hazardousIds.push(booking.id)
 
         await tx.bookingBayAllocation.create({
           data: {
@@ -564,6 +918,7 @@ async function main() {
             bookingId: booking.id, truckNumber: e.truckNo, driverName: e.driverName,
             driverPhone: e.driverPhone, qrToken: e.qrToken,
             status: TruckTripStatus.COMPLETED,
+            custodyStage: CustodyStage.EXITED,
           },
         })
 
@@ -604,6 +959,7 @@ async function main() {
               bookingId: booking.id, truckNumber: e.truckNo!, driverName: e.driverName!,
               driverPhone: e.driverPhone!, qrToken: e.qrToken!,
               status: TruckTripStatus.QR_ISSUED,
+              custodyStage: CustodyStage.GATE_CHECKIN,
             },
           })
           await tx.gateEvent.create({
@@ -615,19 +971,21 @@ async function main() {
           })
         }
       }
+      return { acceptedIds, hazardousIds }
     }, { timeout: 60000 }))
+    allAcceptedBookingIds.push(...created.acceptedIds)
+    hazardousBookingIds.push(...created.hazardousIds)
 
     if (dayIdx % 5 === 0) {
       console.log(`  Day ${dt.dayOfMonth} Jan: ${dt.accepted} accepted, ${dt.rejected} rejected`)
     }
   }
 
-  console.log(`✅ ${bookingCounter} bookings created (${allAcceptedBookingIds.length} accepted, ${bookingCounter - allAcceptedBookingIds.length} rejected)`)
+  console.log(`${bookingCounter} bookings created (${allAcceptedBookingIds.length} accepted, ${bookingCounter - allAcceptedBookingIds.length} rejected)`)
 
   // ─── Safety Checklists ────────────────────────────────────────────────
-  console.log('🛡️ Creating safety data...')
+  console.log('Creating safety data...')
   const hazardousForChecklist = shuffle(hazardousBookingIds).slice(0, Math.ceil(hazardousBookingIds.length * 0.6))
-  // Batch safety checklists in chunks of 50
   for (let i = 0; i < hazardousForChecklist.length; i += 50) {
     const chunk = hazardousForChecklist.slice(i, i + 50)
     await retry(() => prisma.$transaction(async (tx) => {
@@ -662,7 +1020,7 @@ async function main() {
     'Unauthorized vehicle in restricted zone',
   ]
   for (let i = 0; i < 5; i++) {
-    const isActive = i < 2 // first 2 remain active
+    const isActive = i < 2
     const createdDate = new Date(2025, 0, randInt(5, 28))
     await prisma.stopWorkOrder.create({
       data: {
@@ -709,10 +1067,295 @@ async function main() {
   }
   console.log('  10 incidents created (7 closed, 3 open)')
 
+  // ─── Sample Active Bookings with Compliance States ────────────────────
+  // Create today's bookings that exercise the compliance pipeline
+  console.log('Creating sample compliance flow bookings...')
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Create a today timeslot
+  const todaySlot = await prisma.timeSlot.create({
+    data: { terminalId: terminal.id, date: today, startTime: '10:00', endTime: '10:30', capacityTrucks: 6 },
+  })
+
+  const sampleTrips: { tripId: string; bookingId: string; label: string }[] = []
+
+  // Trip 1: Methanol booking - all docs verified, safety passed, READY_FOR_BAY
+  {
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNo: 'BK26DEMO01',
+        terminalId: terminal.id,
+        clientId: clientRecords[0].id,
+        productId: methanol.id,
+        quantityRequested: 25,
+        date: today,
+        timeSlotId: todaySlot.id,
+        transporterId: transporter1.id,
+        status: BookingStatus.IN_TERMINAL,
+        createdByUserId: clientUsers[clientRecords[0].id],
+      },
+    })
+    const trip = await prisma.truckTrip.create({
+      data: {
+        bookingId: booking.id,
+        truckNumber: 'AP12AB1234',
+        driverName: 'Ramesh Kumar',
+        driverPhone: '9876543210',
+        qrToken: 'qr-demo-01',
+        status: TruckTripStatus.IN_TERMINAL,
+        custodyStage: CustodyStage.READY_FOR_BAY,
+        readyForBayAt: new Date(),
+        priorityClass: PriorityClass.APPOINTMENT,
+        appointmentStart: new Date(today.getTime() + 10 * 3600000),
+        appointmentEnd: new Date(today.getTime() + 10.5 * 3600000),
+      },
+    })
+    // Create compliance gate results
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.SAFETY, status: ComplianceGateStatus.PASS, evaluatedByUserId: hseUser.id },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.DOCUMENTS, status: ComplianceGateStatus.PASS, evaluatedByUserId: terminalAdmin.id },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.STOP_WORK, status: ComplianceGateStatus.PASS },
+    })
+    // Safety checklist
+    await prisma.safetyChecklist.create({
+      data: { bookingId: booking.id, createdByHseId: hseUser.id, status: ChecklistStatus.PASSED, checklistJson: { ppe: true, earthing: true, leakCheck: true } },
+    })
+    // Documents
+    for (const code of ['MSDS', 'EX_BOND', 'DELIVERY_ORDER', 'EWAY_BILL']) {
+      await prisma.documentRecord.create({
+        data: {
+          documentTypeId: docTypeByCode[code],
+          linkType: DocumentLinkType.BOOKING,
+          linkId: booking.id,
+          fileUrl: `/docs/demo/${code.toLowerCase()}_demo01.pdf`,
+          verificationStatus: DocumentVerificationStatus.VERIFIED,
+          verifiedByUserId: terminalAdmin.id,
+          verifiedAt: new Date(),
+          expiryDate: code === 'MSDS' || code === 'EWAY_BILL' ? new Date(today.getTime() + 90 * 86400000) : null,
+        },
+      })
+    }
+    // Trip events
+    await prisma.tripEvent.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, type: TripEventType.STAGE_CHANGE, stage: CustodyStage.GATE_CHECKIN, message: 'Truck checked in at gate', actorUserId: securityUser.id },
+    })
+    await prisma.tripEvent.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, type: TripEventType.STAGE_CHANGE, stage: CustodyStage.SAFETY_APPROVED, message: 'Safety checklist passed', actorUserId: hseUser.id },
+    })
+    await prisma.tripEvent.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, type: TripEventType.COMPLIANCE_CLEARED, stage: CustodyStage.READY_FOR_BAY, message: 'All compliance gates passed', actorUserId: terminalAdmin.id },
+    })
+    sampleTrips.push({ tripId: trip.id, bookingId: booking.id, label: 'Ready for bay' })
+  }
+
+  // Trip 2: Methanol booking - docs missing (BLOCKED)
+  {
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNo: 'BK26DEMO02',
+        terminalId: terminal.id,
+        clientId: clientRecords[1].id,
+        productId: methanol.id,
+        quantityRequested: 30,
+        date: today,
+        timeSlotId: todaySlot.id,
+        transporterId: transporter2.id,
+        status: BookingStatus.IN_TERMINAL,
+        createdByUserId: clientUsers[clientRecords[1].id],
+      },
+    })
+    const trip = await prisma.truckTrip.create({
+      data: {
+        bookingId: booking.id,
+        truckNumber: 'TS14CD5678',
+        driverName: 'Suresh Reddy',
+        driverPhone: '9876543211',
+        qrToken: 'qr-demo-02',
+        status: TruckTripStatus.IN_TERMINAL,
+        custodyStage: CustodyStage.GATE_CHECKIN,
+        priorityClass: PriorityClass.BLOCKED,
+      },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.SAFETY, status: ComplianceGateStatus.PASS, evaluatedByUserId: hseUser.id },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.DOCUMENTS, status: ComplianceGateStatus.FAIL, reason: 'Missing EX_BOND and DELIVERY_ORDER', evaluatedByUserId: terminalAdmin.id },
+    })
+    await prisma.safetyChecklist.create({
+      data: { bookingId: booking.id, createdByHseId: hseUser.id, status: ChecklistStatus.PASSED, checklistJson: { ppe: true, earthing: true, leakCheck: true } },
+    })
+    // Only MSDS uploaded, missing EX_BOND and DELIVERY_ORDER
+    await prisma.documentRecord.create({
+      data: {
+        documentTypeId: docTypeByCode['MSDS'],
+        linkType: DocumentLinkType.BOOKING,
+        linkId: booking.id,
+        fileUrl: `/docs/demo/msds_demo02.pdf`,
+        verificationStatus: DocumentVerificationStatus.VERIFIED,
+        verifiedByUserId: terminalAdmin.id,
+        verifiedAt: new Date(),
+        expiryDate: new Date(today.getTime() + 90 * 86400000),
+      },
+    })
+    await prisma.tripEvent.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, type: TripEventType.COMPLIANCE_BLOCKED, stage: CustodyStage.GATE_CHECKIN, message: 'Blocked: missing EX_BOND and DELIVERY_ORDER', actorUserId: terminalAdmin.id },
+    })
+    sampleTrips.push({ tripId: trip.id, bookingId: booking.id, label: 'Blocked - missing docs' })
+  }
+
+  // Trip 3: HSD booking - safety failed (BLOCKED)
+  {
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNo: 'BK26DEMO03',
+        terminalId: terminal.id,
+        clientId: clientRecords[2].id,
+        productId: hsd.id,
+        quantityRequested: 20,
+        date: today,
+        timeSlotId: todaySlot.id,
+        transporterId: transporter3.id,
+        status: BookingStatus.IN_TERMINAL,
+        createdByUserId: clientUsers[clientRecords[2].id],
+      },
+    })
+    const trip = await prisma.truckTrip.create({
+      data: {
+        bookingId: booking.id,
+        truckNumber: 'MH16EF9012',
+        driverName: 'Mahesh Rao',
+        driverPhone: '9876543212',
+        qrToken: 'qr-demo-03',
+        status: TruckTripStatus.IN_TERMINAL,
+        custodyStage: CustodyStage.GATE_CHECKIN,
+        priorityClass: PriorityClass.BLOCKED,
+      },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.SAFETY, status: ComplianceGateStatus.FAIL, reason: 'Earthing check failed', evaluatedByUserId: hseUser.id },
+    })
+    await prisma.safetyChecklist.create({
+      data: { bookingId: booking.id, createdByHseId: hseUser.id, status: ChecklistStatus.FAILED, checklistJson: { ppe: true, earthing: false, leakCheck: true } },
+    })
+    await prisma.tripEvent.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, type: TripEventType.COMPLIANCE_BLOCKED, stage: CustodyStage.GATE_CHECKIN, message: 'Blocked: safety checklist FAILED', actorUserId: hseUser.id },
+    })
+    sampleTrips.push({ tripId: trip.id, bookingId: booking.id, label: 'Blocked - safety failed' })
+  }
+
+  // Trip 4: LDO booking - all passed, READY_FOR_BAY
+  {
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNo: 'BK26DEMO04',
+        terminalId: terminal.id,
+        clientId: clientRecords[3].id,
+        productId: ldo.id,
+        quantityRequested: 18,
+        date: today,
+        timeSlotId: todaySlot.id,
+        transporterId: transporter1.id,
+        status: BookingStatus.IN_TERMINAL,
+        createdByUserId: clientUsers[clientRecords[3].id],
+      },
+    })
+    const trip = await prisma.truckTrip.create({
+      data: {
+        bookingId: booking.id,
+        truckNumber: 'KA18GH3456',
+        driverName: 'Rajesh Sharma',
+        driverPhone: '9876543213',
+        qrToken: 'qr-demo-04',
+        status: TruckTripStatus.IN_TERMINAL,
+        custodyStage: CustodyStage.READY_FOR_BAY,
+        readyForBayAt: new Date(),
+        priorityClass: PriorityClass.FCFS,
+      },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.SAFETY, status: ComplianceGateStatus.PASS, evaluatedByUserId: hseUser.id },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.DOCUMENTS, status: ComplianceGateStatus.PASS, evaluatedByUserId: terminalAdmin.id },
+    })
+    await prisma.complianceGateResult.create({
+      data: { truckTripId: trip.id, bookingId: booking.id, gateType: ComplianceGateType.STOP_WORK, status: ComplianceGateStatus.PASS },
+    })
+    await prisma.safetyChecklist.create({
+      data: { bookingId: booking.id, createdByHseId: hseUser.id, status: ChecklistStatus.PASSED, checklistJson: { ppe: true, earthing: true, leakCheck: true } },
+    })
+    for (const code of ['MSDS', 'DELIVERY_ORDER', 'EWAY_BILL']) {
+      await prisma.documentRecord.create({
+        data: {
+          documentTypeId: docTypeByCode[code],
+          linkType: DocumentLinkType.BOOKING,
+          linkId: booking.id,
+          fileUrl: `/docs/demo/${code.toLowerCase()}_demo04.pdf`,
+          verificationStatus: DocumentVerificationStatus.VERIFIED,
+          verifiedByUserId: terminalAdmin.id,
+          verifiedAt: new Date(),
+        },
+      })
+    }
+    sampleTrips.push({ tripId: trip.id, bookingId: booking.id, label: 'Ready for bay (LDO)' })
+  }
+
+  // Trip 5: Methanol booking - docs pending verification
+  {
+    const booking = await prisma.booking.create({
+      data: {
+        bookingNo: 'BK26DEMO05',
+        terminalId: terminal.id,
+        clientId: clientRecords[4].id,
+        productId: methanol.id,
+        quantityRequested: 22,
+        date: today,
+        timeSlotId: todaySlot.id,
+        transporterId: transporter2.id,
+        status: BookingStatus.IN_TERMINAL,
+        createdByUserId: clientUsers[clientRecords[4].id],
+      },
+    })
+    const trip = await prisma.truckTrip.create({
+      data: {
+        bookingId: booking.id,
+        truckNumber: 'TN20IJ7890',
+        driverName: 'Ganesh Singh',
+        driverPhone: '9876543214',
+        qrToken: 'qr-demo-05',
+        status: TruckTripStatus.IN_TERMINAL,
+        custodyStage: CustodyStage.GATE_CHECKIN,
+        priorityClass: PriorityClass.FCFS,
+      },
+    })
+    // Docs uploaded but pending verification
+    for (const code of ['MSDS', 'EX_BOND', 'DELIVERY_ORDER']) {
+      await prisma.documentRecord.create({
+        data: {
+          documentTypeId: docTypeByCode[code],
+          linkType: DocumentLinkType.BOOKING,
+          linkId: booking.id,
+          fileUrl: `/docs/demo/${code.toLowerCase()}_demo05.pdf`,
+          verificationStatus: DocumentVerificationStatus.PENDING,
+        },
+      })
+    }
+    sampleTrips.push({ tripId: trip.id, bookingId: booking.id, label: 'Docs pending verification' })
+  }
+
+  console.log(`  ${sampleTrips.length} sample compliance bookings created`)
+
   // ─── Verification Summary ─────────────────────────────────────────────
-  console.log('\n══════════════════════════════════════════════')
+  console.log('\n==================================================')
   console.log('  SEED VERIFICATION SUMMARY')
-  console.log('══════════════════════════════════════════════')
+  console.log('==================================================')
 
   const totalBookings = await prisma.booking.count()
   const closedBookings = await prisma.booking.count({ where: { status: BookingStatus.CLOSED } })
@@ -722,53 +1365,60 @@ async function main() {
   const totalChecklists = await prisma.safetyChecklist.count()
   const totalStopWork = await prisma.stopWorkOrder.count()
   const totalIncidents = await prisma.incident.count()
+  const totalArms = await prisma.loadingArm.count()
+  const totalDocTypes = await prisma.documentType.count()
+  const totalDocs = await prisma.documentRecord.count()
+  const totalCompat = await prisma.productCompatibility.count()
+  const totalProducts = await prisma.product.count()
 
-  console.log(`  Total bookings:    ${totalBookings} (target: 1084)  ${totalBookings === 1084 ? '✅' : '❌'}`)
-  console.log(`  Accepted (CLOSED): ${closedBookings} (target: 811)   ${closedBookings === 811 ? '✅' : '❌'}`)
-  console.log(`  Rejected:          ${rejectedBookings} (target: 273)   ${rejectedBookings === 273 ? '✅' : '❌'}`)
-  console.log(`  Active days:       ${JAN2025_ACTIVE_DAYS.length} (target: 27)    ${JAN2025_ACTIVE_DAYS.length === 27 ? '✅' : '❌'}`)
+  console.log(`  Products:          ${totalProducts}`)
+  console.log(`  Loading Arms:      ${totalArms}`)
+  console.log(`  Product Compat:    ${totalCompat} rules`)
+  console.log(`  Document Types:    ${totalDocTypes}`)
+  console.log(`  Documents:         ${totalDocs}`)
+  console.log(`  Total bookings:    ${totalBookings}`)
+  console.log(`  Accepted (CLOSED): ${closedBookings}`)
+  console.log(`  Rejected:          ${rejectedBookings}`)
   console.log(`  Truck trips:       ${totalTrips}`)
   console.log(`  Gate events:       ${totalGateEvents}`)
   console.log(`  Safety checklists: ${totalChecklists}`)
   console.log(`  Stop work orders:  ${totalStopWork}`)
   console.log(`  Incidents:         ${totalIncidents}`)
 
-  // Bay utilization check
-  console.log('\n  Bay Utilization:')
-  for (const bd of BAY_DEFS) {
-    const count = await prisma.bookingBayAllocation.count({ where: { bayId: bayRecords[bd.code] } })
-    const match = count === bd.target
-    console.log(`    ${bd.code}: ${count} (target: ${bd.target}) ${match ? '✅' : '❌'}`)
+  console.log('\n  Gantry-1 Arm Assignments:')
+  const g1Arms = await prisma.loadingArm.findMany({
+    where: { bay: { gantry: { name: 'Gantry 1' } } },
+    include: { bay: true, currentProduct: true },
+    orderBy: [{ bay: { uniqueCode: 'asc' } }, { armNo: 'asc' }],
+  })
+  let currentBay = ''
+  for (const arm of g1Arms) {
+    if (arm.bay.uniqueCode !== currentBay) {
+      currentBay = arm.bay.uniqueCode
+      process.stdout.write(`    ${currentBay}: `)
+    }
+    process.stdout.write(`Arm${arm.armNo}=${arm.currentProduct?.name ?? 'Empty'} `)
+    if (arm.armNo === 3) process.stdout.write('\n')
   }
 
-  // Overflow days check
-  console.log('\n  Overflow Days:')
-  for (const [dom, target] of Object.entries(OVERFLOW_DAYS)) {
-    const dayDate = new Date(2025, 0, parseInt(dom))
-    const nextDay = new Date(2025, 0, parseInt(dom) + 1)
-    const acc = await prisma.booking.count({ where: { date: { gte: dayDate, lt: nextDay }, status: BookingStatus.CLOSED } })
-    const rej = await prisma.booking.count({ where: { date: { gte: dayDate, lt: nextDay }, status: BookingStatus.REJECTED } })
-    const ok = acc === target.accepted && rej === target.rejected
-    console.log(`    Jan ${dom}: ${acc} accepted, ${rej} rejected (target: ${target.accepted}/${target.rejected}) ${ok ? '✅' : '❌'}`)
-  }
-
-  console.log('\n══════════════════════════════════════════════')
-  console.log('  🎉 Seed completed!')
-  console.log('══════════════════════════════════════════════')
+  console.log('\n==================================================')
+  console.log('  Seed completed!')
+  console.log('==================================================')
   console.log('\n  Demo logins (password: password123):')
-  console.log('  ┌──────────────────┬──────────────────────────────────┐')
-  console.log('  │ Role             │ Email                            │')
-  console.log('  ├──────────────────┼──────────────────────────────────┤')
-  console.log('  │ Super Admin      │ superadmin@eipl.com              │')
-  console.log('  │ Terminal Admin   │ admin@eipl.com                   │')
-  console.log('  │ Security         │ security@eipl.com                │')
-  console.log('  │ HSE Officer      │ hse@eipl.com                     │')
-  console.log('  │ Surveyor         │ surveyor@eipl.com                │')
-  console.log('  │ Auditor          │ auditor@eipl.com                 │')
-  console.log('  │ Transporter      │ dispatch@safehaul.com            │')
-  console.log('  │ Transporter      │ ops@speedtankers.com             │')
-  console.log('  │ Client           │ client@tridentchemp.com          │')
-  console.log('  └──────────────────┴──────────────────────────────────┘')
+  console.log('  +---------------------+----------------------------------+')
+  console.log('  | Role                | Email                            |')
+  console.log('  +---------------------+----------------------------------+')
+  console.log('  | Super Admin         | superadmin@eipl.com              |')
+  console.log('  | Terminal Admin      | admin@eipl.com                   |')
+  console.log('  | Security            | security@eipl.com                |')
+  console.log('  | HSE Officer         | hse@eipl.com                     |')
+  console.log('  | Surveyor            | surveyor@eipl.com                |')
+  console.log('  | Auditor             | auditor@eipl.com                 |')
+  console.log('  | Traffic Controller  | controller@eipl.com              |')
+  console.log('  | Transporter         | dispatch@safehaul.com            |')
+  console.log('  | Transporter         | ops@speedtankers.com             |')
+  console.log('  | Client              | client@tridentchemp.com          |')
+  console.log('  +---------------------+----------------------------------+')
 }
 
 main()

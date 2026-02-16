@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-utils'
 import { Role } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
@@ -20,8 +21,22 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({ products })
     }
+    if (user!.role !== Role.SUPER_ADMIN) {
+      const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
+      if (terminalAccessError) return terminalAccessError
+    }
 
     const products = await prisma.product.findMany({
+      where: user!.role === Role.SUPER_ADMIN
+        ? {}
+        : {
+            productBayMaps: {
+              some: {
+                isActive: true,
+                bay: { gantry: { terminalId: user!.terminalId! } },
+              },
+            },
+          },
       orderBy: { name: 'asc' },
     })
 

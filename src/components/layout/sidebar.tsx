@@ -19,6 +19,10 @@ import {
   LogOut,
   Menu,
   X,
+  Radio,
+  FolderOpen,
+  FileCheck,
+  Crosshair,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -31,6 +35,10 @@ const iconMap: Record<string, any> = {
   HSE: HardHat,
   Reports: BarChart3,
   "Audit Logs": FileText,
+  Controller: Radio,
+  Documents: FolderOpen,
+  "Doc Review": FileCheck,
+  "Yard Console": Crosshair,
 }
 
 export function Sidebar() {

@@ -5,9 +5,17 @@ import { incidentSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, IncidentSeverity, IncidentStatus } from '@prisma/client'
+import { enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
-  const { user, error } = await requireAuth()
+  const { user, error } = await requireAuth(
+    Role.HSE_OFFICER,
+    Role.TERMINAL_ADMIN,
+    Role.SUPER_ADMIN,
+    Role.SECURITY,
+    Role.AUDITOR,
+    Role.SURVEYOR
+  )
   if (error) return error
 
   const url = new URL(req.url)
@@ -20,7 +28,14 @@ export async function GET(req: NextRequest) {
 
   const where: any = {}
 
-  if (terminalId) where.terminalId = terminalId
+  if (user!.role !== Role.SUPER_ADMIN) {
+    const terminalAccessError = enforceTerminalAccess(user!, terminalId)
+    if (terminalAccessError) return terminalAccessError
+    where.terminalId = user!.terminalId
+  } else if (terminalId) {
+    where.terminalId = terminalId
+  }
+
   if (status) where.status = status as IncidentStatus
   if (severity) where.severity = severity as IncidentSeverity
   if (bookingId) where.bookingId = bookingId
@@ -79,6 +94,9 @@ export async function POST(req: NextRequest) {
   const data = parsed.data
 
   try {
+    const terminalAccessError = enforceTerminalAccess(user!, data.terminalId)
+    if (terminalAccessError) return terminalAccessError
+
     // Verify terminal exists
     const terminal = await prisma.terminal.findUnique({
       where: { id: data.terminalId },
@@ -96,6 +114,9 @@ export async function POST(req: NextRequest) {
 
       if (!booking) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
+      if (booking.terminalId !== data.terminalId) {
+        return NextResponse.json({ error: 'Booking does not belong to terminal' }, { status: 400 })
       }
     }
 

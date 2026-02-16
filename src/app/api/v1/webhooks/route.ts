@@ -6,11 +6,6 @@ import { TENANT_HEADER, DEFAULT_TENANT_SLUG } from "@/lib/tenant/types"
 import { randomUUID } from "crypto"
 
 /**
- * Webhook secret — in production, store per-tenant in the DB / env.
- */
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "whsec_dev_secret"
-
-/**
  * POST /api/v1/webhooks
  *
  * Receives inbound webhook events from external systems.
@@ -22,12 +17,25 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "whsec_dev_secret"
 export async function POST(request: NextRequest) {
   const requestId = randomUUID()
   const tenantSlug = request.headers.get(TENANT_HEADER) ?? DEFAULT_TENANT_SLUG
+  const webhookSecret = process.env.WEBHOOK_SECRET
+  if (!webhookSecret) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "WEBHOOK_SECRET_NOT_CONFIGURED",
+          message: "Webhook secret is not configured.",
+          requestId,
+        },
+      },
+      { status: 500 }
+    )
+  }
 
   // Read raw body for signature verification
   const rawBody = await request.text()
   const signature = request.headers.get("x-webhook-signature")
 
-  const verification = verifyWebhookSignature(rawBody, signature, WEBHOOK_SECRET)
+  const verification = verifyWebhookSignature(rawBody, signature, webhookSecret)
   if (!verification.valid) {
     return NextResponse.json(
       {

@@ -6,6 +6,7 @@ import { generateBookingNo } from '@/lib/booking-state'
 import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
+import { bookingScopeForUser, enforceTerminalAccess } from '@/lib/auth/scope'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
@@ -21,17 +22,21 @@ export async function GET(req: NextRequest) {
   const page = parseInt(url.searchParams.get('page') || '1')
   const limit = parseInt(url.searchParams.get('limit') || '20')
 
-  const where: any = {}
-
-  // Role-based filtering
-  if (user!.role === Role.CLIENT && user!.clientId) {
-    where.clientId = user!.clientId
-  } else if (user!.role === Role.TRANSPORTER && user!.transporterId) {
-    where.transporterId = user!.transporterId
-  }
+  const scoped = bookingScopeForUser(user!)
+  if (scoped.error) return scoped.error
+  const where: any = { ...scoped.where }
 
   if (status) where.status = status
-  if (clientId) where.clientId = clientId
+  if (clientId) {
+    if (user!.role === Role.CLIENT) {
+      if (clientId !== user!.clientId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      where.clientId = user!.clientId
+    } else {
+      where.clientId = clientId
+    }
+  }
   if (productId) where.productId = productId
   if (search) where.bookingNo = { contains: search, mode: 'insensitive' }
   if (dateFrom || dateTo) {
@@ -73,6 +78,8 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data
+  const terminalAccessError = enforceTerminalAccess(user!, data.terminalId)
+  if (terminalAccessError && user!.role !== Role.CLIENT) return terminalAccessError
 
   // For CLIENT role, force clientId
   let clientId = data.terminalId // placeholder
@@ -151,7 +158,7 @@ export async function POST(req: NextRequest) {
     body: `Booking ${booking.bookingNo} submitted for ${booking.product.name} - ${data.quantityRequested} ${inventory.uom}`,
   })
 
-  if (user!.role !== Role.CLIENT && user!.clientId) {
+  if (user!.role !== Role.CLIENT) {
     const clientUsers = await prisma.user.findMany({
       where: { clientId, role: Role.CLIENT },
       select: { id: true },
