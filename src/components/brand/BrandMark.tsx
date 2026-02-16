@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { resolveTheme, type BrandTheme } from "@/lib/brand/theme"
 
 interface BrandMarkProps {
@@ -25,7 +26,7 @@ export function BrandMark({ theme, size = 40, variant = "full", className = "" }
         className={`shrink-0 rounded-md bg-gray-50 border border-gray-200 flex items-center justify-center overflow-hidden ${className}`}
         style={{ width: size, height: size }}
       >
-        <img
+        <Image
           src={t.logoSrc}
           alt={t.productName}
           width={size}
@@ -37,9 +38,11 @@ export function BrandMark({ theme, size = 40, variant = "full", className = "" }
   }
 
   return (
-    <img
+    <Image
       src={t.logoSrc}
       alt={t.productName}
+      width={200}
+      height={80}
       className={`object-contain w-full max-h-20 ${className}`}
     />
   )

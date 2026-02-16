@@ -103,6 +103,7 @@ export default function ClientDocumentsPage() {
   const [selectedDocType, setSelectedDocType] = useState("")
   const [selectedBooking, setSelectedBooking] = useState("")
   const [fileUrl, setFileUrl] = useState("")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [expiryDate, setExpiryDate] = useState("")
 
   // ── Data Fetching ─────────────────────────────────────────────────────
@@ -116,7 +117,7 @@ export default function ClientDocumentsPage() {
     },
   })
 
-  const bookings: BookingRecord[] = bookingsData?.bookings || []
+  const bookings: BookingRecord[] = useMemo(() => bookingsData?.bookings || [], [bookingsData])
 
   const { data: documentsData, isLoading: docsLoading } = useQuery({
     queryKey: ["client-documents"],
@@ -127,7 +128,7 @@ export default function ClientDocumentsPage() {
     },
   })
 
-  const allDocuments: DocumentRecord[] = documentsData?.documents || documentsData || []
+  const allDocuments: DocumentRecord[] = useMemo(() => documentsData?.documents || documentsData || [], [documentsData])
 
   // ── Derived Data ──────────────────────────────────────────────────────
 
@@ -173,16 +174,43 @@ export default function ClientDocumentsPage() {
       linkType: string
       linkId: string
       fileUrl: string
+      file?: File | null
       expiryDate?: string
     }) => {
+      let resolvedFileUrl = data.fileUrl
+      let checksum: string | undefined
+
+      if (data.file) {
+        const fd = new FormData()
+        fd.append("file", data.file)
+        const uploadRes = await fetch("/api/documents/upload", {
+          method: "POST",
+          body: fd,
+        })
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}))
+          throw new Error(err?.error?.message || "Failed to upload file")
+        }
+        const uploadJson = await uploadRes.json()
+        resolvedFileUrl = uploadJson.fileUrl
+        checksum = uploadJson.checksum
+      }
+
       const res = await fetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          documentTypeCode: data.documentTypeCode,
+          linkType: data.linkType,
+          linkId: data.linkId,
+          fileUrl: resolvedFileUrl,
+          checksum,
+          expiryDate: data.expiryDate,
+        }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || "Failed to upload document")
+        const err = await res.json().catch(() => ({} as any))
+        throw new Error(err?.error?.message || "Failed to upload document")
       }
       return res.json()
     },
@@ -201,16 +229,18 @@ export default function ClientDocumentsPage() {
     setSelectedDocType("")
     setSelectedBooking("")
     setFileUrl("")
+    setSelectedFile(null)
     setExpiryDate("")
   }
 
   function handleUpload() {
-    if (!selectedDocType || !selectedBooking || !fileUrl) return
+    if (!selectedDocType || !selectedBooking || (!fileUrl && !selectedFile)) return
     uploadDoc.mutate({
       documentTypeCode: selectedDocType,
       linkType: "BOOKING",
       linkId: selectedBooking,
       fileUrl,
+      file: selectedFile,
       expiryDate: expiryDate || undefined,
     })
   }
@@ -540,14 +570,26 @@ export default function ClientDocumentsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>File URL *</Label>
+              <Label>File Upload (recommended)</Label>
+              <Input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.txt,.json,.csv,.log"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload a file directly. Text/JSON/CSV files support automatic field extraction.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>File URL (optional fallback)</Label>
               <Input
                 placeholder="https://storage.example.com/doc.pdf"
                 value={fileUrl}
                 onChange={(e) => setFileUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Enter the URL of your uploaded file
+                Use this only if your file is already hosted elsewhere.
               </p>
             </div>
 
@@ -567,7 +609,7 @@ export default function ClientDocumentsPage() {
             </Button>
             <Button
               onClick={handleUpload}
-              disabled={!selectedDocType || !selectedBooking || !fileUrl || uploadDoc.isPending}
+              disabled={!selectedDocType || !selectedBooking || (!fileUrl && !selectedFile) || uploadDoc.isPending}
             >
               {uploadDoc.isPending ? "Uploading..." : "Upload"}
             </Button>

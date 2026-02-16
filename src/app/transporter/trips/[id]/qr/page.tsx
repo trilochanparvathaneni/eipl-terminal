@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Download, Printer } from "lucide-react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 export default function QRPage() {
   const { id } = useParams()
@@ -44,7 +45,7 @@ export default function QRPage() {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           {data.qrDataUrl && (
-            <img src={data.qrDataUrl} alt="QR Code" className="mx-auto w-64 h-64" />
+            <Image src={data.qrDataUrl} alt="QR Code" className="mx-auto" width={256} height={256} unoptimized />
           )}
 
           <div className="text-sm space-y-1 border-t pt-4">
