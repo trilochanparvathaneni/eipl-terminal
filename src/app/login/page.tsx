@@ -40,7 +40,7 @@ export default function LoginPage() {
   const demoLogins = [
     { label: "Super Admin", email: "superadmin@eipl.com" },
     { label: "Terminal Admin", email: "admin@eipl.com" },
-    { label: "Client (IOC)", email: "client@ioc.com" },
+    { label: "Client", email: "client@tridentchemp.com" },
     { label: "Transporter", email: "dispatch@safehaul.com" },
     { label: "Security", email: "security@eipl.com" },
     { label: "Surveyor", email: "surveyor@eipl.com" },

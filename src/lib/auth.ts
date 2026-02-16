@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!checkRateLimit(credentials.email)) {
           logger.warn({ email: credentials.email }, 'Login rate limited')
-          throw new Error('Too many login attempts. Please try again later.')
+          return null
         }
 
         const user = await prisma.user.findUnique({

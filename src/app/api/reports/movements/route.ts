@@ -21,6 +21,12 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(url.searchParams.get('limit') || '20')
     const dateFrom = url.searchParams.get('dateFrom')
     const dateTo = url.searchParams.get('dateTo')
+    const tripStatus = url.searchParams.get('tripStatus')
+    const truckNumber = url.searchParams.get('truckNumber')
+    const transporterId = url.searchParams.get('transporterId')
+    const clientId = url.searchParams.get('clientId')
+    const productId = url.searchParams.get('productId')
+    const bookingNo = url.searchParams.get('bookingNo')
 
     const where: any = {}
     if (user!.role !== Role.SUPER_ADMIN) {
@@ -37,6 +43,18 @@ export async function GET(req: NextRequest) {
             ...(dateTo ? { lte: new Date(dateTo) } : {}),
           },
         },
+      }
+    }
+    if (tripStatus) where.status = tripStatus
+    if (truckNumber) where.truckNumber = { contains: truckNumber, mode: 'insensitive' }
+
+    if (transporterId || clientId || productId || bookingNo) {
+      where.booking = {
+        ...(where.booking ?? {}),
+        ...(transporterId ? { transporterId } : {}),
+        ...(clientId ? { clientId } : {}),
+        ...(productId ? { productId } : {}),
+        ...(bookingNo ? { bookingNo: { contains: bookingNo, mode: 'insensitive' } } : {}),
       }
     }
 

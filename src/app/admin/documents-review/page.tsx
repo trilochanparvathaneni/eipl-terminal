@@ -57,6 +57,10 @@ interface DocumentRecord {
   rejectionReason: string | null
   verifiedByUserId: string | null
   verifiedAt: string | null
+  extractedMetadata?: {
+    confidence?: number
+    validation?: { passed?: boolean; mismatches?: string[] }
+  } | null
   createdAt: string
 }
 
@@ -292,6 +296,7 @@ export default function AdminDocumentsReviewPage() {
                     <TableHead>Doc Type</TableHead>
                     <TableHead>Uploaded By</TableHead>
                     <TableHead>File</TableHead>
+                    <TableHead>Auto Check</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Uploaded At</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -335,6 +340,29 @@ export default function AdminDocumentsReviewPage() {
                           <ExternalLink className="h-3 w-3 shrink-0" />
                           {doc.fileUrl.split("/").pop() || "View file"}
                         </a>
+                      </TableCell>
+                      <TableCell>
+                        {doc.extractedMetadata?.validation ? (
+                          <div className="space-y-1">
+                            <Badge
+                              className={
+                                doc.extractedMetadata.validation.passed
+                                  ? "bg-green-100 text-green-800 border-green-300"
+                                  : "bg-red-100 text-red-800 border-red-300"
+                              }
+                              title={(doc.extractedMetadata.validation.mismatches || []).join(" | ")}
+                            >
+                              {doc.extractedMetadata.validation.passed ? "PASS" : "FAIL"}
+                            </Badge>
+                            {typeof doc.extractedMetadata.confidence === "number" && (
+                              <p className="text-[10px] text-muted-foreground">
+                                conf {(doc.extractedMetadata.confidence * 100).toFixed(0)}%
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge className={statusBadgeClass(doc.verificationStatus)}>

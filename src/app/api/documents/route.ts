@@ -3,6 +3,11 @@ import { P } from "@/lib/auth/permissions"
 import { prisma } from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
 import { Role } from "@prisma/client"
+import {
+  extractFromDocumentText,
+  extractTextFromUploadedDocument,
+  validateExtractedAgainstBooking,
+} from "@/lib/document-extraction"
 
 /**
  * GET /api/documents?linkType=BOOKING&linkId=xxx
@@ -21,59 +26,75 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const linkType = url.searchParams.get("linkType")
     const linkId = url.searchParams.get("linkId")
+    const status = url.searchParams.get("status")
+    const documentType = url.searchParams.get("documentType")
 
-    if (!linkType || !linkId) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "VALIDATION",
-            message: "linkType and linkId query parameters are required.",
-            requestId: ctx.requestId,
-          },
-        },
-        { status: 400 }
-      )
+    const where: any = {}
+    if (status) where.verificationStatus = status as any
+    if (documentType) {
+      where.documentType = { code: documentType }
     }
+    if (linkType) where.linkType = linkType as any
+    if (linkId) where.linkId = linkId
 
     // CLIENT role: enforce that the linkId is their own booking
-    if (ctx.user.role === Role.CLIENT && linkType === "BOOKING") {
-      const booking = await prisma.booking.findUnique({
-        where: { id: linkId },
-        select: { clientId: true },
-      })
-
-      if (!booking) {
-        return NextResponse.json(
-          {
-            error: {
-              code: "NOT_FOUND",
-              message: "Booking not found.",
-              requestId: ctx.requestId,
-            },
-          },
-          { status: 404 }
-        )
-      }
-
-      if (booking.clientId !== ctx.user.clientId) {
+    if (ctx.user.role === Role.CLIENT) {
+      if (linkType && linkType !== "BOOKING") {
         return NextResponse.json(
           {
             error: {
               code: "FORBIDDEN",
-              message: "You can only view documents for your own bookings.",
+              message: "Clients can only view BOOKING-linked documents.",
               requestId: ctx.requestId,
             },
           },
           { status: 403 }
         )
       }
+
+      where.linkType = "BOOKING"
+      if (linkId) {
+        const booking = await prisma.booking.findUnique({
+          where: { id: linkId },
+          select: { clientId: true },
+        })
+
+        if (!booking) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "NOT_FOUND",
+                message: "Booking not found.",
+                requestId: ctx.requestId,
+              },
+            },
+            { status: 404 }
+          )
+        }
+
+        if (booking.clientId !== ctx.user.clientId) {
+          return NextResponse.json(
+            {
+              error: {
+                code: "FORBIDDEN",
+                message: "You can only view documents for your own bookings.",
+                requestId: ctx.requestId,
+              },
+            },
+            { status: 403 }
+          )
+        }
+      } else {
+        const bookings = await prisma.booking.findMany({
+          where: { clientId: ctx.user.clientId || undefined },
+          select: { id: true },
+        })
+        where.linkId = { in: bookings.map((b) => b.id) }
+      }
     }
 
     const documents = await prisma.documentRecord.findMany({
-      where: {
-        linkType: linkType as any,
-        linkId,
-      },
+      where,
       include: {
         documentType: true,
         verifiedBy: {
@@ -117,15 +138,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { documentTypeId, linkType, linkId, fileUrl, expiryDate } = body
+    const { documentTypeId, documentTypeCode, linkType, linkId, fileUrl, expiryDate, checksum } = body
 
-    if (!documentTypeId || !linkType || !linkId || !fileUrl) {
+    if ((!documentTypeId && !documentTypeCode) || !linkType || !linkId || !fileUrl) {
       return NextResponse.json(
         {
           error: {
             code: "VALIDATION",
             message:
-              "Missing required fields: documentTypeId, linkType, linkId, fileUrl.",
+              "Missing required fields: (documentTypeId or documentTypeCode), linkType, linkId, fileUrl.",
             requestId: ctx.requestId,
           },
         },
@@ -134,9 +155,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate documentType exists
-    const docType = await prisma.documentType.findUnique({
-      where: { id: documentTypeId },
-    })
+    const docType = documentTypeId
+      ? await prisma.documentType.findUnique({ where: { id: documentTypeId } })
+      : await prisma.documentType.findUnique({ where: { code: documentTypeCode } })
 
     if (!docType) {
       return NextResponse.json(
@@ -148,6 +169,19 @@ export async function POST(request: NextRequest) {
           },
         },
         { status: 404 }
+      )
+    }
+
+    if (!docType.allowedLinkTypes.includes(linkType)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "VALIDATION",
+            message: `Document type ${docType.code} is not allowed for linkType ${linkType}.`,
+            requestId: ctx.requestId,
+          },
+        },
+        { status: 400 }
       )
     }
 
@@ -187,17 +221,56 @@ export async function POST(request: NextRequest) {
 
     // Determine version: increment if a previous record exists for same type + link
     const existingCount = await prisma.documentRecord.count({
-      where: { documentTypeId, linkType: linkType as any, linkId },
+      where: { documentTypeId: docType.id, linkType: linkType as any, linkId },
     })
+
+    let extractedMetadata: any = null
+    const extractedText = await extractTextFromUploadedDocument(fileUrl)
+    if (extractedText) {
+      const extracted = extractFromDocumentText(docType.code, extractedText)
+
+      let validation = { passed: true, mismatches: [] as string[] }
+      if (linkType === "BOOKING") {
+        const booking = await prisma.booking.findUnique({
+          where: { id: linkId },
+          include: {
+            product: true,
+            truckTrips: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        })
+
+        validation = validateExtractedAgainstBooking({
+          fields: extracted.fields,
+          bookingNo: booking?.bookingNo,
+          bookingProductName: booking?.product?.name,
+          bookingQuantity: booking?.quantityRequested,
+          latestTripTruckNumber: booking?.truckTrips?.[0]?.truckNumber ?? null,
+        })
+      }
+
+      extractedMetadata = {
+        parser: "regex-v1",
+        extractedAt: new Date().toISOString(),
+        confidence: extracted.confidence,
+        fields: extracted.fields,
+        warnings: extracted.warnings,
+        validation,
+      }
+    }
 
     const document = await prisma.documentRecord.create({
       data: {
-        documentTypeId,
+        documentTypeId: docType.id,
         linkType: linkType as any,
         linkId,
         fileUrl,
+        checksum: checksum || null,
         version: existingCount + 1,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
+        extractedMetadata,
         verificationStatus: "PENDING",
       },
       include: {
@@ -213,11 +286,12 @@ export async function POST(request: NextRequest) {
         entityId: document.id,
         action: "UPLOAD",
         afterJson: {
-          documentTypeId,
+          documentTypeId: docType.id,
           linkType,
           linkId,
           fileUrl,
           version: document.version,
+          extractedMetadata,
         },
       },
     })

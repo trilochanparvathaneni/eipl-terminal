@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
 import { getNavItems } from "@/lib/rbac"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import {
   HardHat,
   BarChart3,
   FileText,
-  LogOut,
   Menu,
   X,
   Radio,
@@ -79,19 +78,11 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t p-3 space-y-2">
+      <div className="border-t p-3">
         <div className="px-3 py-2">
-          <p className="text-sm font-medium">{session.user.name}</p>
-          <p className="text-xs text-muted-foreground">{session.user.role.replace('_', ' ')}</p>
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Terminal Ops</p>
+          <p className="text-[11px] text-muted-foreground">Operations Console</p>
         </div>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
       </div>
     </div>
   )

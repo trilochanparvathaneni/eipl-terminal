@@ -5,6 +5,9 @@ import { useRouter, usePathname } from "next/navigation"
 import { useEffect } from "react"
 import { Sidebar } from "./sidebar"
 import { NotificationBell } from "./notification-bell"
+import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
+import { signOut } from "next-auth/react"
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -44,6 +47,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="text-sm font-medium leading-tight">{session.user.name}</p>
               <p className="text-xs text-muted-foreground leading-tight">{session.user.role.replace(/_/g, " ")}</p>
             </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 font-semibold"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="h-3.5 w-3.5 mr-1" />
+              Sign out
+            </Button>
           </div>
         </div>
       </header>

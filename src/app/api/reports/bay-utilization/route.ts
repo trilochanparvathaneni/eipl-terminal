@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const dateFrom = url.searchParams.get('dateFrom')
     const dateTo = url.searchParams.get('dateTo')
+    const gantryId = url.searchParams.get('gantryId')
+    const bayId = url.searchParams.get('bayId')
+    const productId = url.searchParams.get('productId')
+    const minAllocations = parseInt(url.searchParams.get('minAllocations') || '0')
     if (user!.role !== Role.SUPER_ADMIN) {
       const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
       if (terminalAccessError) return terminalAccessError
@@ -29,10 +33,23 @@ export async function GET(req: NextRequest) {
       if (dateTo) allocationWhere.allocatedAt.lte = new Date(dateTo)
     }
 
+    const bayWhere: any = user!.role === Role.SUPER_ADMIN
+      ? {}
+      : { gantry: { terminalId: user!.terminalId! } }
+
+    if (gantryId) bayWhere.gantryId = gantryId
+    if (bayId) bayWhere.id = bayId
+    if (productId) {
+      bayWhere.productBayMaps = {
+        some: {
+          productId,
+          isActive: true,
+        },
+      }
+    }
+
     const bays = await prisma.bay.findMany({
-      where: user!.role === Role.SUPER_ADMIN
-        ? {}
-        : { gantry: { terminalId: user!.terminalId! } },
+      where: bayWhere,
       include: {
         gantry: {
           include: {
@@ -62,7 +79,7 @@ export async function GET(req: NextRequest) {
       },
       products: bay.productBayMaps.map((m) => m.product),
       allocationCount: bay.bayAllocations.length,
-    }))
+    })).filter((u) => u.allocationCount >= minAllocations)
 
     return NextResponse.json({ utilization })
   } catch (err) {

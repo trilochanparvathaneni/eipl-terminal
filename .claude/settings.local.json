@@ -59,7 +59,9 @@
       "Bash(npx vercel:*)",
       "Bash(wc:*)",
       "Bash(npx prisma db seed:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npx next lint)",
+      "Bash(npx vitest run)"
     ]
   }
 }

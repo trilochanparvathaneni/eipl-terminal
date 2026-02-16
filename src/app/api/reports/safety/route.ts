@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url)
     const dateFrom = url.searchParams.get('dateFrom')
     const dateTo = url.searchParams.get('dateTo')
+    const checklistStatus = url.searchParams.get('checklistStatus')
+    const incidentSeverity = url.searchParams.get('incidentSeverity')
+    const incidentStatus = url.searchParams.get('incidentStatus')
+    const stopWorkActiveOnly = url.searchParams.get('stopWorkActiveOnly') === 'true'
     if (user!.role !== Role.SUPER_ADMIN) {
       const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
       if (terminalAccessError) return terminalAccessError
@@ -31,6 +35,10 @@ export async function GET(req: NextRequest) {
     const checklistWhere: any = { ...dateFilter }
     const stopWorkWhere: any = { ...dateFilter }
     const incidentWhere: any = { ...dateFilter }
+    if (checklistStatus) checklistWhere.status = checklistStatus
+    if (incidentSeverity) incidentWhere.severity = incidentSeverity
+    if (incidentStatus) incidentWhere.status = incidentStatus
+    if (stopWorkActiveOnly) stopWorkWhere.active = true
     if (user!.role !== Role.SUPER_ADMIN) {
       checklistWhere.booking = { terminalId: user!.terminalId! }
       stopWorkWhere.booking = { terminalId: user!.terminalId! }
