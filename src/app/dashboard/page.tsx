@@ -260,6 +260,56 @@ export default function DashboardPage() {
   const showTripKpi = ["SUPER_ADMIN", "TERMINAL_ADMIN", "AUDITOR", "SECURITY", "TRANSPORTER", "CLIENT", "TRAFFIC_CONTROLLER"].includes(role)
   const showFleet = ["SUPER_ADMIN", "TERMINAL_ADMIN", "SECURITY", "TRANSPORTER", "TRAFFIC_CONTROLLER"].includes(role)
   const showBayHeatmap = ["SUPER_ADMIN", "TERMINAL_ADMIN", "AUDITOR", "TRAFFIC_CONTROLLER"].includes(role)
+  const topCardCount = [showTop5, showTripKpi, showFleet].filter(Boolean).length
+  const showFleetCompanion = showFleet && topCardCount === 1
+  const showTopGlance = role === "SUPER_ADMIN"
+  const attentionCount = recentBookings.filter((b) => ["REJECTED", "IN_TERMINAL"].includes(b.status)).length
+  const nextActions: Record<Role, Array<{ label: string; href: string }>> = {
+    SUPER_ADMIN: [{ label: "Review Reports", href: "/reports" }, { label: "Open Schedule", href: "/schedule" }, { label: "Audit Logs", href: "/audit-logs" }],
+    TERMINAL_ADMIN: [{ label: "Open Schedule", href: "/schedule" }, { label: "Review Reports", href: "/reports" }, { label: "Doc Review", href: "/admin/documents-review" }],
+    CLIENT: [{ label: "New Booking", href: "/bookings/new" }, { label: "My Documents", href: "/client/documents" }, { label: "All Bookings", href: "/bookings" }],
+    TRANSPORTER: [{ label: "My Trips", href: "/transporter/trips" }, { label: "All Bookings", href: "/bookings" }, { label: "Notifications", href: "/notifications" }],
+    SECURITY: [{ label: "Gate Operations", href: "/security/gate" }, { label: "All Bookings", href: "/bookings" }, { label: "Notifications", href: "/notifications" }],
+    SURVEYOR: [{ label: "Doc Review", href: "/admin/documents-review" }, { label: "Review Reports", href: "/reports" }, { label: "All Bookings", href: "/bookings" }],
+    HSE_OFFICER: [{ label: "HSE Console", href: "/hse" }, { label: "Review Reports", href: "/reports" }, { label: "Notifications", href: "/notifications" }],
+    AUDITOR: [{ label: "Audit Logs", href: "/audit-logs" }, { label: "Review Reports", href: "/reports" }, { label: "Notifications", href: "/notifications" }],
+    TRAFFIC_CONTROLLER: [{ label: "Controller Console", href: "/controller/console" }, { label: "Yard Console", href: "/controller/yard-console" }, { label: "Review Reports", href: "/reports" }],
+  }
+
+  const renderTodayAtGlanceCard = () => (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader>
+        <CardTitle className="text-lg">Today at a Glance</CardTitle>
+        <CardDescription>Operational pulse and next best actions</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-muted/50 p-2.5">
+            <p className="text-[11px] font-semibold text-muted-foreground">Recent Bookings</p>
+            <p className="text-xl font-bold">{recentBookings.length}</p>
+          </div>
+          <div className="rounded-lg bg-amber-50 p-2.5">
+            <p className="text-[11px] font-semibold text-amber-700">Needs Attention</p>
+            <p className="text-xl font-bold text-amber-800">{attentionCount}</p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 p-2.5">
+            <p className="text-[11px] font-semibold text-emerald-700">Closed Today</p>
+            <p className="text-xl font-bold text-emerald-800">{recentBookings.filter((b) => b.status === "CLOSED").length}</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {nextActions[role].map((action) => (
+            <Link key={action.href} href={action.href}>
+              <Button variant="outline" className="w-full justify-between group">
+                {action.label}
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   return (
     <PeriodContext.Provider value={{ per }}>
@@ -290,6 +340,35 @@ export default function DashboardPage() {
           {showTop5 && <Top5Card />}
           {showTripKpi && <TripKPICard />}
           {showFleet && <FleetCard />}
+          {showTopGlance && renderTodayAtGlanceCard()}
+          {showFleetCompanion && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Fleet Action Queue</CardTitle>
+                <CardDescription>Suggested operational actions for today</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Link href="/bookings">
+                  <Button variant="outline" className="w-full justify-between group">
+                    Review In-Terminal Trips
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+                <Link href="/notifications">
+                  <Button variant="outline" className="w-full justify-between group">
+                    Check Alerts and Notifications
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+                <Link href="/reports">
+                  <Button variant="outline" className="w-full justify-between group">
+                    Open Fleet Performance Reports
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {showBayHeatmap && <BayHeatmap />}
@@ -340,6 +419,8 @@ export default function DashboardPage() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {!showTopGlance && renderTodayAtGlanceCard()}
+
           {(role === "CLIENT" || role === "TERMINAL_ADMIN" || role === "SUPER_ADMIN") && (
             <Card className="hover:shadow-md transition-shadow">
               <CardHeader><CardTitle className="text-lg">Quick Actions</CardTitle></CardHeader>
