@@ -107,7 +107,7 @@ export function Sidebar() {
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r bg-background">
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r bg-background" data-tour="sidebar">
         {nav}
       </div>
     </>

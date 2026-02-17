@@ -43,7 +43,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" data-tour="notifications">
       {/* Bell button */}
       <button
         onClick={() => setOpen(!open)}

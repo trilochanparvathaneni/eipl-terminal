@@ -17,7 +17,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Search, Plus, Settings, LogOut, User } from "lucide-react"
+import { Search, Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
+import { ProductTour } from "@/components/onboarding/product-tour"
+import { useProductTour } from "@/hooks/use-product-tour"
 
 type SearchTarget = {
   id: string
@@ -43,6 +45,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const role = (session?.user as any)?.role as any
+  const userId = (session?.user as any)?.id as string | undefined
+  const { shouldShow: tourActive, completeTour, resetTour } = useProductTour(userId)
 
   const searchTargets = useMemo<SearchTarget[]>(() => {
     const navTargets = role
@@ -143,7 +147,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
-            <div className="relative w-full max-w-[560px]">
+            <div className="relative w-full max-w-[560px]" data-tour="search">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 ref={searchRef}
@@ -211,6 +215,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <button
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 transition-all hover:ring-2 hover:ring-indigo-200"
+                  data-tour="profile"
                   title={userName}
                 >
                   {initials}
@@ -233,6 +238,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <Settings className="h-4 w-4 mr-2" />
                   Settings
                 </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => resetTour()}>
+                  <PlayCircle className="h-4 w-4 mr-2" />
+                  Take a Tour
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-red-600 focus:text-red-600"
@@ -250,7 +259,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="lg:pl-64">
         <div className="p-4 lg:p-8 pt-20 lg:pt-20">{children}</div>
       </main>
-      <ChatbotWidget role={role} />
+      <div data-tour="chatbot">
+        <ChatbotWidget role={role} />
+      </div>
+      {role && (
+        <ProductTour
+          active={tourActive}
+          role={role}
+          onComplete={completeTour}
+        />
+      )}
     </div>
   )
 }
