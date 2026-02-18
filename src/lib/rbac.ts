@@ -64,6 +64,10 @@ export const ROLE_PERMISSIONS: Record<string, Role[]> = {
   'evidence:generate': [Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SURVEYOR, Role.AUDITOR],
   'evidence:read': [Role.CLIENT, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SURVEYOR, Role.AUDITOR],
   'controller:assign_arm': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
+
+  // Chat & Forms
+  'chat:use': [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+  'form:submit': [Role.CLIENT, Role.TRANSPORTER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
 }
 
 export function hasPermission(role: Role, permission: string): boolean {
@@ -150,6 +154,14 @@ export function getNavItems(role: Role): NavItem[] {
 
   if (hasPermission(role, 'audit:read')) {
     items.push({ label: 'Audit Logs', href: '/audit-logs' })
+  }
+
+  if (hasPermission(role, 'chat:use')) {
+    items.push({ label: 'Chat', href: '/chat' })
+  }
+
+  if (hasPermission(role, 'form:submit')) {
+    items.push({ label: 'Forms', href: '/forms' })
   }
 
   return items

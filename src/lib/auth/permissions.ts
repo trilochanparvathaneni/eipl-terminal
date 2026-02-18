@@ -75,6 +75,10 @@ export const P = {
   CUSTODY_TRANSITION: "custody:transition",
   EVIDENCE_GENERATE: "evidence:generate",
   EVIDENCE_READ: "evidence:read",
+
+  // ── Chat & Forms ─────────────────────────────────────────────────────────
+  CHAT_USE: "chat:use",
+  FORM_SUBMIT: "form:submit",
 } as const
 
 export type Permission = (typeof P)[keyof typeof P]
