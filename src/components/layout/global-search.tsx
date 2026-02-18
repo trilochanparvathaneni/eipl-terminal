@@ -42,7 +42,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
       item?.scrollIntoView({ block: "nearest" })
     }, [activeIndex])
 
-    function runAction(route: SearchableRoute) {
+    const runAction = useCallback((route: SearchableRoute) => {
       setOpen(false)
       setQuery("")
       setActiveIndex(-1)
@@ -58,7 +58,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
       }
 
       router.push(route.path)
-    }
+    }, [router, onTour])
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -94,7 +94,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
             break
         }
       },
-      [open, matches, activeIndex]
+      [open, matches, activeIndex, runAction]
     )
 
     // Build a flat index counter across grouped categories
@@ -108,6 +108,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
           type="text"
           role="combobox"
           aria-expanded={open}
+          aria-controls="global-search-listbox"
           aria-activedescendant={activeIndex >= 0 ? `search-item-${activeIndex}` : undefined}
           value={query}
           onFocus={() => setOpen(true)}
@@ -124,6 +125,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
         {open && (
           <div
             ref={listRef}
+            id="global-search-listbox"
             role="listbox"
             className="absolute top-full left-0 right-0 mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           >

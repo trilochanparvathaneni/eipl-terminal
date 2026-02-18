@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-utils"
 import { hasPermission } from "@/lib/rbac"
-import { openai, CHAT_MODEL } from "@/lib/ai/openai-client"
+import { getOpenAIClient, CHAT_MODEL } from "@/lib/ai/openai-client"
 import { FORM_SCHEMAS } from "@/lib/ai/form-schemas"
 import { extractTextFromUploadedDocument } from "@/lib/document-extraction"
 import { createAuditLog } from "@/lib/audit"
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Call OpenAI with structured output
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAIClient().chat.completions.create({
     model: CHAT_MODEL,
     messages: [
       {

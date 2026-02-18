@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth-utils"
 import { hasPermission } from "@/lib/rbac"
 import { prisma } from "@/lib/prisma"
-import { openai, CHAT_MODEL } from "@/lib/ai/openai-client"
+import { getOpenAIClient, CHAT_MODEL } from "@/lib/ai/openai-client"
 import { checkChatRateLimit } from "@/lib/ai/rate-limiter"
 import { buildSystemPrompt } from "@/lib/ai/system-prompt"
 import { CHAT_TOOL_DEFINITIONS, executeTool } from "@/lib/ai/chat-tools"
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         while (continueLoop) {
           continueLoop = false
 
-          const completion = await openai.chat.completions.create({
+          const completion = await getOpenAIClient().chat.completions.create({
             model: CHAT_MODEL,
             messages,
             tools: CHAT_TOOL_DEFINITIONS,

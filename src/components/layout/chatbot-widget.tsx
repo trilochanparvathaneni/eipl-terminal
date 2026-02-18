@@ -72,7 +72,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     }
   }
 
-  function getNavReply(query: string): ChatMessage | null {
+  const getNavReply = useCallback((query: string): ChatMessage | null => {
     const q = query.trim().toLowerCase()
 
     if (q.includes("sign out") || q.includes("logout") || q.includes("log out")) {
@@ -116,7 +116,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     }
 
     return null
-  }
+  }, [navItems])
 
   const handleMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
@@ -216,7 +216,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
         )
       )
     }
-  }, [role, navItems])
+  }, [role, navItems, getNavReply])
 
   function handleChip(chip: string) {
     handleMessage(chip)

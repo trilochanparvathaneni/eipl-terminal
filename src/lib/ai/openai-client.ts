@@ -1,15 +1,14 @@
 import OpenAI from "openai"
 
-const globalForOpenAI = globalThis as unknown as {
-  openai: OpenAI | undefined
+// Lazily initialised so the constructor (which validates OPENAI_API_KEY) is
+// never called at Next.js build-time during "Collecting page data".
+let _client: OpenAI | undefined
+
+export function getOpenAIClient(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  }
+  return _client
 }
-
-export const openai =
-  globalForOpenAI.openai ??
-  new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-
-if (process.env.NODE_ENV !== "production") globalForOpenAI.openai = openai
 
 export const CHAT_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini"
