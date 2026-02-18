@@ -94,7 +94,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
-            {role && <GlobalSearch ref={searchRef} role={role} />}
+            {role && <GlobalSearch ref={searchRef} role={role} onTour={resetTour} />}
           </div>
 
           <div className="flex-1 md:hidden" />

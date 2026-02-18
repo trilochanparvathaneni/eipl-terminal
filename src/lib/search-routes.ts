@@ -7,6 +7,7 @@ export type RouteCategory =
   | "Safety"
   | "Documents"
   | "Administration"
+  | "Account"
 
 export interface SearchableRoute {
   id: string
@@ -149,14 +150,82 @@ export const SEARCHABLE_ROUTES: SearchableRoute[] = [
     roles: ALL_ROLES,
     priority: 5,
   },
+  // Account
+  {
+    id: "profile",
+    name: "Profile",
+    path: "/profile",
+    category: "Account",
+    keywords: ["profile", "account", "my account", "user", "personal info"],
+    roles: ALL_ROLES,
+    priority: 5,
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    path: "/settings",
+    category: "Account",
+    keywords: ["settings", "preferences", "configuration", "config", "options"],
+    roles: ALL_ROLES,
+    priority: 5,
+  },
   {
     id: "signout",
     name: "Sign Out",
     path: "",
-    category: "Navigation",
+    category: "Account",
     keywords: ["logout", "exit", "end session"],
     roles: ALL_ROLES,
     priority: 1,
+  },
+  // Quick actions & sub-pages
+  {
+    id: "transporter-qr",
+    name: "Trip QR Code",
+    path: "/transporter/trips",
+    category: "Operations",
+    keywords: ["qr", "code", "scan", "ticket"],
+    roles: [Role.TRANSPORTER],
+    parent: "my-trips",
+    priority: 4,
+  },
+  {
+    id: "upload-documents",
+    name: "Upload Documents",
+    path: "/client/documents",
+    category: "Documents",
+    keywords: ["upload", "attach", "file", "submit", "compliance"],
+    roles: [Role.CLIENT],
+    parent: "client-documents",
+    priority: 6,
+  },
+  {
+    id: "export-reports",
+    name: "Export Reports",
+    path: "/reports",
+    category: "Administration",
+    keywords: ["export", "download", "csv", "pdf", "excel", "print"],
+    roles: [Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SURVEYOR, Role.AUDITOR],
+    parent: "reports",
+    priority: 5,
+  },
+  {
+    id: "manage-users",
+    name: "Manage Users",
+    path: "/settings",
+    category: "Administration",
+    keywords: ["users", "roles", "permissions", "team", "invite", "admin"],
+    roles: [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN],
+    priority: 5,
+  },
+  {
+    id: "product-tour",
+    name: "Take a Tour",
+    path: "",
+    category: "Account",
+    keywords: ["tour", "guide", "help", "walkthrough", "onboarding", "tutorial"],
+    roles: ALL_ROLES,
+    priority: 2,
   },
 ]
 
@@ -171,4 +240,5 @@ export const CATEGORY_CONFIG: Record<RouteCategory, string> = {
   Safety: "bg-red-100 text-red-700",
   Documents: "bg-emerald-100 text-emerald-700",
   Administration: "bg-purple-100 text-purple-700",
+  Account: "bg-indigo-100 text-indigo-700",
 }

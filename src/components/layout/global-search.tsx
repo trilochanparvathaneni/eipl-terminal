@@ -14,10 +14,11 @@ import type { SearchableRoute } from "@/lib/search-routes"
 interface GlobalSearchProps {
   role: Role
   className?: string
+  onTour?: () => void
 }
 
 export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
-  function GlobalSearch({ role, className }, ref) {
+  function GlobalSearch({ role, className, onTour }, ref) {
     const router = useRouter()
     const [query, setQuery] = useState("")
     const [open, setOpen] = useState(false)
@@ -33,6 +34,11 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
 
       if (route.id === "signout") {
         signOut({ callbackUrl: "/login" })
+        return
+      }
+
+      if (route.id === "product-tour") {
+        onTour?.()
         return
       }
 
