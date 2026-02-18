@@ -17,17 +17,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Search, Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
+import { Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
+import { GlobalSearch } from "./global-search"
 import { ProductTour } from "@/components/onboarding/product-tour"
 import { useProductTour } from "@/hooks/use-product-tour"
-
-type SearchTarget = {
-  id: string
-  label: string
-  subtitle: string
-  href?: string
-  action?: "signout"
-}
 
 function getUserInitials(name?: string | null): string {
   if (!name) return "?"
@@ -41,42 +34,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const theme = resolveTheme()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const role = (session?.user as any)?.role as any
   const userId = (session?.user as any)?.id as string | undefined
   const { shouldShow: tourActive, completeTour, resetTour } = useProductTour(userId)
-
-  const searchTargets = useMemo<SearchTarget[]>(() => {
-    const navTargets = role
-      ? getNavItems(role).map((item) => ({
-          id: item.href,
-          label: item.label,
-          subtitle: item.href,
-          href: item.href,
-        }))
-      : []
-
-    return [
-      ...navTargets,
-      { id: "/notifications", label: "Notifications", subtitle: "/notifications", href: "/notifications" },
-      { id: "signout", label: "Sign out", subtitle: "End current session", action: "signout" },
-    ]
-  }, [role])
-
-  const filteredTargets = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    const source = q
-      ? searchTargets.filter(
-          (item) =>
-            item.label.toLowerCase().includes(q) ||
-            item.subtitle.toLowerCase().includes(q)
-        )
-      : searchTargets
-
-    return source.slice(0, 8)
-  }, [searchTargets, searchQuery])
 
   useEffect(() => {
     if (status === "unauthenticated" && pathname !== "/login") {
@@ -119,20 +80,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const userName = session.user.name || "User"
   const userRole = (session.user as any).role?.replace(/_/g, " ") || "User"
   const initials = getUserInitials(userName)
-  function runSearchTarget(target: SearchTarget) {
-    setSearchOpen(false)
-    setSearchQuery("")
-
-    if (target.action === "signout") {
-      signOut({ callbackUrl: "/login" })
-      return
-    }
-
-    if (target.href) {
-      router.push(target.href)
-    }
-  }
-
   return (
     <div className="min-h-screen">
       <Sidebar />
@@ -147,51 +94,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
-            <div className="relative w-full max-w-[560px]" data-tour="search">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                ref={searchRef}
-                type="text"
-                value={searchQuery}
-                onFocus={() => setSearchOpen(true)}
-                onBlur={() => setTimeout(() => setSearchOpen(false), 120)}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setSearchOpen(true)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && filteredTargets.length > 0) {
-                    e.preventDefault()
-                    runSearchTarget(filteredTargets[0])
-                  }
-                }}
-                placeholder="Search pages and actions ( / )"
-                className="h-8 w-full rounded-full border border-transparent bg-slate-100 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-slate-300 focus:bg-white"
-              />
-
-              {searchOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                  {filteredTargets.length === 0 ? (
-                    <div className="px-3 py-2.5 text-sm text-slate-500">No matching pages or actions.</div>
-                  ) : (
-                    <div className="py-1">
-                      {filteredTargets.map((target) => (
-                        <button
-                          key={target.id}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => runSearchTarget(target)}
-                          className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-slate-100"
-                        >
-                          <span className="text-sm font-medium text-slate-700">{target.label}</span>
-                          <span className="text-xs text-slate-400">{target.subtitle}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {role && <GlobalSearch ref={searchRef} role={role} />}
           </div>
 
           <div className="flex-1 md:hidden" />
