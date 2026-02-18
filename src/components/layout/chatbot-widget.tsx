@@ -1,29 +1,45 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { MessageCircle, X, Send, Bot } from "lucide-react"
+import { MessageCircle, X, Send, Bot, ArrowRight, Loader2 } from "lucide-react"
 import { getNavItems } from "@/lib/rbac"
+import { classifyIntent } from "@/lib/copilot/intent-classifier"
+import type { CopilotMessage, ChatAction } from "@/lib/copilot/response-builder"
 
 type ChatRole = any
-
-type ChatAction = {
-  id: string
-  label: string
-  href?: string
-  action?: "signout"
-}
 
 type ChatMessage = {
   id: string
   sender: "bot" | "user"
   text: string
   actions?: ChatAction[]
+  breakdown?: string[]
+  recommendedActions?: string[]
+  source?: string
+  timestamp?: string
+  isOpsMetric?: boolean
+  isLoading?: boolean
+  error?: string
 }
 
 function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+const SUGGESTED_CHIPS = [
+  "How many trucks in terminal?",
+  "Safety report",
+  "Bay utilization",
+  "Open dashboard",
+]
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  if (diff < 60_000) return "just now"
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  return `${Math.floor(diff / 3_600_000)}h ago`
 }
 
 export function ChatbotWidget({ role }: { role: ChatRole }) {
@@ -34,11 +50,16 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     {
       id: makeId(),
       sender: "bot",
-      text: "Hi, I can help you navigate this app. Try: open reports, go to bookings, notifications, or sign out.",
+      text: "Hi! I'm the EIPL Ops Digital Twin. Ask me about metrics, safety, or navigate the app.",
     },
   ])
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const navItems = useMemo(() => getNavItems(role), [role])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   function runAction(action: ChatAction) {
     if (action.action === "signout") {
@@ -51,12 +72,8 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     }
   }
 
-  function getBotReply(query: string): ChatMessage {
+  function getNavReply(query: string): ChatMessage | null {
     const q = query.trim().toLowerCase()
-
-    if (!q) {
-      return { id: makeId(), sender: "bot", text: "Type a question or command, like open dashboard." }
-    }
 
     if (q.includes("sign out") || q.includes("logout") || q.includes("log out")) {
       return {
@@ -98,28 +115,111 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
       }
     }
 
-    const quickActions: ChatAction[] = navItems.slice(0, 4).map((item) => ({
-      id: item.href,
-      label: item.label,
-      href: item.href,
-    }))
-
-    return {
-      id: makeId(),
-      sender: "bot",
-      text: "I can help with navigation. Choose a quick destination:",
-      actions: quickActions,
-    }
+    return null
   }
 
-  function submitMessage() {
-    const text = input.trim()
-    if (!text) return
+  const handleMessage = useCallback(async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
 
-    const userMessage: ChatMessage = { id: makeId(), sender: "user", text }
-    const botReply = getBotReply(text)
-    setMessages((prev) => [...prev, userMessage, botReply])
+    const userMessage: ChatMessage = { id: makeId(), sender: "user", text: trimmed }
+    setMessages((prev) => [...prev, userMessage])
     setInput("")
+
+    // Classify intent
+    const intent = classifyIntent(trimmed, role)
+
+    // Permission denied
+    if (intent.permissionDenied) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId(),
+          sender: "bot",
+          text: "You don't have access to this data. Contact your administrator if you believe this is an error.",
+          error: `Permission denied for ${intent.toolId}`,
+        },
+      ])
+      return
+    }
+
+    // Navigation intent — handle locally
+    if (intent.category === "navigation" || !intent.toolId) {
+      const navReply = getNavReply(trimmed)
+      if (navReply) {
+        setMessages((prev) => [...prev, navReply])
+        return
+      }
+
+      // Fallback
+      const quickActions: ChatAction[] = navItems.slice(0, 4).map((item) => ({
+        id: item.href,
+        label: item.label,
+        href: item.href,
+      }))
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: makeId(),
+          sender: "bot",
+          text: "I can help with navigation or ops questions. Choose a destination or ask about metrics:",
+          actions: quickActions,
+        },
+      ])
+      return
+    }
+
+    // Ops / Safety / Action intent — call server
+    const loadingId = makeId()
+    setMessages((prev) => [
+      ...prev,
+      { id: loadingId, sender: "bot", text: "Fetching data...", isLoading: true },
+    ])
+
+    try {
+      const res = await fetch("/api/chat/ops", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolId: intent.toolId,
+          extractedParams: intent.extractedParams,
+        }),
+      })
+
+      const data: CopilotMessage = await res.json()
+
+      // Replace loading message with response
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? {
+                ...data,
+                id: loadingId,
+                sender: "bot" as const,
+                isLoading: false,
+              }
+            : m
+        )
+      )
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? {
+                id: loadingId,
+                sender: "bot" as const,
+                text: "Something went wrong. Please check your connection and try again.",
+                error: "Network error",
+                isLoading: false,
+              }
+            : m
+        )
+      )
+    }
+  }, [role, navItems])
+
+  function handleChip(chip: string) {
+    handleMessage(chip)
   }
 
   return (
@@ -135,17 +235,20 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
 
       {open && (
         <div className="fixed bottom-20 right-5 z-50 w-[calc(100vw-2.5rem)] max-w-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+          {/* Header */}
           <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5">
             <Bot className="h-4 w-4 text-indigo-600" />
             <div>
-              <p className="text-sm font-semibold text-slate-800">Ops Assistant</p>
-              <p className="text-xs text-slate-500">Navigation and quick actions</p>
+              <p className="text-sm font-semibold text-slate-800">EIPL Ops Digital Twin</p>
+              <p className="text-xs text-slate-500">Metrics, safety, and navigation</p>
             </div>
           </div>
 
+          {/* Messages */}
           <div className="max-h-[360px] space-y-3 overflow-y-auto px-3 py-3">
-            {messages.map((message) => (
+            {messages.map((message, idx) => (
               <div key={message.id}>
+                {/* Message bubble */}
                 <div
                   className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
                     message.sender === "user"
@@ -153,8 +256,60 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                       : "bg-slate-100 text-slate-700"
                   }`}
                 >
-                  {message.text}
+                  {message.isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span className="text-slate-500">Fetching data...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Main text */}
+                      {message.isOpsMetric ? (
+                        <p className="font-medium">{message.text}</p>
+                      ) : (
+                        message.text
+                      )}
+
+                      {/* Breakdown */}
+                      {message.breakdown && message.breakdown.length > 0 && (
+                        <ul className="mt-2 space-y-0.5 text-xs text-slate-600">
+                          {message.breakdown.map((line, i) => (
+                            <li key={i} className={line.startsWith("•") || line.startsWith("  ") ? "ml-2" : ""}>
+                              {line || "\u00A0"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {/* Recommended Actions */}
+                      {message.recommendedActions && message.recommendedActions.length > 0 && (
+                        <div className="mt-2 border-t border-slate-200 pt-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Recommended
+                          </p>
+                          <ul className="mt-0.5 space-y-0.5 text-xs text-indigo-700">
+                            {message.recommendedActions.map((action, i) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <ArrowRight className="mt-0.5 h-3 w-3 shrink-0" />
+                                <span>{action}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Source footer */}
+                      {message.source && (
+                        <p className="mt-1.5 text-[10px] text-slate-400">
+                          {message.source}
+                          {message.timestamp && ` · ${relativeTime(message.timestamp)}`}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
+
+                {/* Action buttons */}
                 {message.actions && message.actions.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {message.actions.map((action) => (
@@ -169,10 +324,28 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                     ))}
                   </div>
                 )}
+
+                {/* Suggested chips after welcome message */}
+                {idx === 0 && message.sender === "bot" && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {SUGGESTED_CHIPS.map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => handleChip(chip)}
+                        className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
 
+          {/* Input */}
           <div className="border-t border-slate-200 p-2.5">
             <div className="flex items-center gap-2">
               <input
@@ -182,15 +355,15 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
-                    submitMessage()
+                    handleMessage(input)
                   }
                 }}
-                placeholder="Ask: open dashboard, reports..."
+                placeholder="Ask: metrics, safety, navigate..."
                 className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none transition-colors focus:border-slate-300"
               />
               <button
                 type="button"
-                onClick={submitMessage}
+                onClick={() => handleMessage(input)}
                 className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-600 text-white transition-colors hover:bg-indigo-700"
                 aria-label="Send message"
               >
