@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useMemo, useState } from "react"
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { Search } from "lucide-react"
@@ -22,15 +22,30 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
     const router = useRouter()
     const [query, setQuery] = useState("")
     const [open, setOpen] = useState(false)
+    const [activeIndex, setActiveIndex] = useState(-1)
     const debouncedQuery = useDebounce(query, 300)
+    const listRef = useRef<HTMLDivElement>(null)
 
     const routes = useMemo(() => getSearchableRoutes(role), [role])
     const matches = useMemo(() => searchRoutes(debouncedQuery, routes), [debouncedQuery, routes])
     const grouped = useMemo(() => groupResultsByCategory(matches), [matches])
 
+    // Reset active index when results change
+    useEffect(() => {
+      setActiveIndex(-1)
+    }, [debouncedQuery])
+
+    // Scroll active item into view
+    useEffect(() => {
+      if (activeIndex < 0 || !listRef.current) return
+      const item = listRef.current.querySelector(`[data-index="${activeIndex}"]`)
+      item?.scrollIntoView({ block: "nearest" })
+    }, [activeIndex])
+
     function runAction(route: SearchableRoute) {
       setOpen(false)
       setQuery("")
+      setActiveIndex(-1)
 
       if (route.id === "signout") {
         signOut({ callbackUrl: "/login" })
@@ -45,35 +60,73 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
       router.push(route.path)
     }
 
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent) => {
+        if (!open || matches.length === 0) {
+          if (e.key === "Escape") {
+            setOpen(false)
+            ;(e.target as HTMLInputElement).blur()
+          }
+          return
+        }
+
+        switch (e.key) {
+          case "ArrowDown":
+            e.preventDefault()
+            setActiveIndex((prev) => (prev < matches.length - 1 ? prev + 1 : 0))
+            break
+          case "ArrowUp":
+            e.preventDefault()
+            setActiveIndex((prev) => (prev > 0 ? prev - 1 : matches.length - 1))
+            break
+          case "Enter":
+            e.preventDefault()
+            if (activeIndex >= 0) {
+              runAction(matches[activeIndex].route)
+            } else if (matches.length > 0) {
+              runAction(matches[0].route)
+            }
+            break
+          case "Escape":
+            setOpen(false)
+            setActiveIndex(-1)
+            ;(e.target as HTMLInputElement).blur()
+            break
+        }
+      },
+      [open, matches, activeIndex]
+    )
+
+    // Build a flat index counter across grouped categories
+    let flatIndex = 0
+
     return (
       <div className={className ?? "relative w-full max-w-[560px]"} data-tour="search">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           ref={ref}
           type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-activedescendant={activeIndex >= 0 ? `search-item-${activeIndex}` : undefined}
           value={query}
           onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onBlur={() => setTimeout(() => { setOpen(false); setActiveIndex(-1) }, 120)}
           onChange={(e) => {
             setQuery(e.target.value)
             setOpen(true)
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && matches.length > 0) {
-              e.preventDefault()
-              runAction(matches[0].route)
-            }
-            if (e.key === "Escape") {
-              setOpen(false)
-              ;(e.target as HTMLInputElement).blur()
-            }
-          }}
+          onKeyDown={handleKeyDown}
           placeholder="Search pages and actions ( / )"
           className="h-8 w-full rounded-full border border-transparent bg-slate-100 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-slate-300 focus:bg-white"
         />
 
         {open && (
-          <div className="absolute top-full left-0 right-0 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div
+            ref={listRef}
+            role="listbox"
+            className="absolute top-full left-0 right-0 mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          >
             {matches.length === 0 ? (
               <div className="px-3 py-2.5 text-sm text-slate-500">No matching pages or actions.</div>
             ) : (
@@ -85,22 +138,32 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
                         {category}
                       </Badge>
                     </div>
-                    {items.map((match) => (
-                      <button
-                        key={match.route.id}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => runAction(match.route)}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-100"
-                      >
-                        <span className="text-sm font-medium text-slate-700">
-                          {highlightMatch(match.route.name, debouncedQuery)}
-                        </span>
-                        {match.route.path && (
-                          <span className="text-xs text-slate-400 font-mono">{match.route.path}</span>
-                        )}
-                      </button>
-                    ))}
+                    {items.map((match) => {
+                      const idx = flatIndex++
+                      return (
+                        <button
+                          key={match.route.id}
+                          id={`search-item-${idx}`}
+                          data-index={idx}
+                          role="option"
+                          aria-selected={idx === activeIndex}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          onClick={() => runAction(match.route)}
+                          className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors ${
+                            idx === activeIndex ? "bg-slate-100" : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="text-sm font-medium text-slate-700">
+                            {highlightMatch(match.route.name, debouncedQuery)}
+                          </span>
+                          {match.route.path && (
+                            <span className="text-xs text-slate-400 font-mono">{match.route.path}</span>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 ))}
               </div>
