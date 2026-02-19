@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { statusColor } from "@/lib/utils"
 import Link from "next/link"
-import { Activity, ArrowRight, BarChart3, Calendar, CirclePause, Clock, PackageCheck, RefreshCw, Truck, Wrench } from "lucide-react"
+import { ArrowRight, BarChart3, Calendar, Clock, FileText, Hourglass, LogIn, LogOut, PackageCheck, RefreshCw, Scale, Shield, ShieldCheck, Truck, XCircle } from "lucide-react"
 import { BayHeatmap } from "@/components/dashboard/BayHeatmap"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
@@ -150,7 +150,7 @@ function TripKPICard() {
   const f = periods[per].f
   const kpis = [
     { label: "Total Trips", value: Math.round(223 * f).toLocaleString(), delta: "+12%", up: true },
-    { label: "On-Time Delivery", value: "94.2%", delta: "+2.1%", up: true },
+    { label: "Slot Adherence", value: "87.3%", delta: "+2.1%", up: true },
     { label: "Avg Turnaround", value: `${(18 / Math.max(f, 1) + 4).toFixed(1)}h`, delta: "-8%", up: false },
     { label: "Trucks Loaded", value: Math.round(198 * f).toLocaleString(), delta: "+11%", up: true },
   ]
@@ -194,56 +194,119 @@ function TripKPICard() {
   )
 }
 
-const fleetStatusColor: Record<string, string> = { active: "#34C759", maintenance: "#F5A623", idle: "#E5484D" }
-const fleetStatusIcon: Record<string, typeof Truck> = { active: Activity, maintenance: Wrench, idle: CirclePause }
+const movementStages = [
+  { stage: "Outside Queue",  count: 8,  Icon: Clock,        bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   desc: "Waiting at gate"       },
+  { stage: "Weighbridge",    count: 2,  Icon: Scale,        bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    desc: "Weigh-in (2 bridges)"  },
+  { stage: "Safety Check",   count: 3,  Icon: ShieldCheck,  bg: "bg-purple-50",  border: "border-purple-200",  text: "text-purple-700",  desc: "HSE inspection"        },
+  { stage: "Waiting Bay",    count: 4,  Icon: Hourglass,    bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   desc: "In yard, no bay yet"   },
+  { stage: "At Bay",         count: 12, Icon: PackageCheck, bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", desc: "Loading in progress"   },
+  { stage: "Doc Clearance",  count: 3,  Icon: FileText,     bg: "bg-blue-50",    border: "border-blue-200",    text: "text-blue-700",    desc: "Weigh-out & docs"      },
+  { stage: "Exiting",        count: 2,  Icon: LogOut,       bg: "bg-slate-50",   border: "border-slate-200",   text: "text-slate-600",   desc: "Seal & exit gate"      },
+]
 
-function FleetCard() {
-  const { per } = useContext(PeriodContext)
-  const f = periods[per].f
-  const vehicles = [
-    { name: "Tanker 01", status: "active", trips: Math.round(18 * f), util: 87 },
-    { name: "Tanker 02", status: "active", trips: Math.round(15 * f), util: 78 },
-    { name: "Tanker 03", status: "maintenance", trips: Math.round(12 * f), util: 62 },
-    { name: "Tanker 04", status: "active", trips: Math.round(10 * f), util: 71 },
-    { name: "Tanker 05", status: "idle", trips: Math.round(6 * f), util: 34 },
+function TruckMovementsCard() {
+  const total = movementStages.reduce((s, st) => s + st.count, 0)
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-lg">Live Truck Movements</CardTitle>
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+            {total} trucks in terminal
+          </span>
+        </div>
+        <CardDescription>Current position of every truck across all terminal stages</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* Pipeline — horizontal scroll on small screens */}
+        <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
+          {movementStages.map(({ stage, count, Icon, bg, border, text, desc }, i) => (
+            <div key={stage} className="flex items-center gap-1 shrink-0">
+              <div className={`rounded-xl border ${bg} ${border} px-3 py-3 flex flex-col items-center gap-1.5 min-w-[88px]`}>
+                <Icon className={`h-4 w-4 ${text}`} />
+                <span className={`text-2xl font-bold ${text}`}>{count}</span>
+                <span className="text-[11px] font-semibold text-slate-700 text-center leading-tight">{stage}</span>
+                <span className="text-[10px] text-slate-400 text-center leading-tight">{desc}</span>
+              </div>
+              {i < movementStages.length - 1 && (
+                <ArrowRight className="h-3.5 w-3.5 text-slate-300 shrink-0" />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Warning if outside queue or bay wait is elevated */}
+        {(movementStages[0].count >= 8 || movementStages[3].count >= 4) && (
+          <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700 font-medium">
+            Outside queue ({movementStages[0].count}) or yard wait ({movementStages[3].count}) is elevated — consider opening an additional gate lane or expediting bay turnover.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+const hourlyGate = [
+  { h: "07:00", in: 3, out: 1 },
+  { h: "08:00", in: 7, out: 3 },
+  { h: "09:00", in: 9, out: 6 },
+  { h: "10:00", in: 6, out: 8 },
+  { h: "11:00", in: 4, out: 7 },
+  { h: "12:00", in: 2, out: 5 },
+  { h: "13:00", in: 2, out: 3 },
+  { h: "14:00", in: 1, out: 2 },
+]
+
+function GateActivityCard() {
+  const stats = [
+    { l: "Checked In", v: 34, c: "#34C759", Icon: LogIn },
+    { l: "Checked Out", v: 28, c: "#4F8EF7", Icon: LogOut },
+    { l: "In Yard", v: 6, c: "#F5A623", Icon: Truck },
+    { l: "Rejected", v: 3, c: "#E5484D", Icon: XCircle },
   ]
-  const fleetUtil = Math.round(vehicles.reduce((a, v) => a + v.util, 0) / vehicles.length)
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Truck className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-lg">Fleet Overview</CardTitle>
+          <Shield className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-lg">Gate Activity</CardTitle>
         </div>
-        <CardDescription>{vehicles.length} vehicles · {periods[per].text}</CardDescription>
+        <CardDescription>Today&apos;s gate throughput</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex gap-3 mb-4">
-          {[{ l: "Active", v: vehicles.filter((v) => v.status === "active").length, c: "#34C759" }, { l: "Maint.", v: vehicles.filter((v) => v.status === "maintenance").length, c: "#F5A623" }, { l: "Idle", v: vehicles.filter((v) => v.status === "idle").length, c: "#E5484D" }, { l: "Avg Util", v: `${fleetUtil}%`, c: "#4F8EF7" }].map((s) => (
-            <div key={s.l} className="flex-1 rounded-lg bg-muted/50 py-2.5 px-3 text-center">
-              <div className="text-xl font-bold" style={{ color: s.c }}>{s.v}</div>
-              <div className="text-[10.5px] font-semibold text-muted-foreground mt-0.5">{s.l}</div>
+          {stats.map(({ l, v, c, Icon }) => (
+            <div key={l} className="flex-1 rounded-lg bg-muted/50 py-2.5 px-3 text-center">
+              <Icon className="h-3.5 w-3.5 mx-auto mb-1" style={{ color: c }} />
+              <div className="text-xl font-bold" style={{ color: c }}>{v}</div>
+              <div className="text-[10.5px] font-semibold text-muted-foreground mt-0.5">{l}</div>
             </div>
           ))}
         </div>
-        <div className="flex flex-col gap-0">
-          {vehicles.map((v) => {
-            const Icon = fleetStatusIcon[v.status] ?? Truck
-            return (
-              <div key={v.name} className="flex items-center gap-3 py-2 border-b last:border-0">
-                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[13px] font-semibold text-gray-800 w-20 shrink-0">{v.name}</span>
-                <span className="text-xs text-gray-500 flex-1 truncate">{v.trips} trips</span>
-                <div className="w-14 flex items-center gap-1.5 shrink-0">
-                  <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${v.util}%`, background: v.util > 70 ? "#34C759" : v.util > 40 ? "#F5A623" : "#E5484D" }} />
-                  </div>
-                  <span className="text-[11px] font-semibold text-muted-foreground">{v.util}%</span>
-                </div>
-              </div>
-            )
-          })}
+        <div className="h-[100px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={hourlyGate} barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="h" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{ fontSize: 11, borderRadius: 6, border: "1px solid #e2e8f0" }}
+                itemStyle={{ padding: 0 }}
+                cursor={{ fill: "rgba(79,142,247,.06)" }}
+              />
+              <Bar dataKey="in" name="Check-in" fill="#34C759" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="out" name="Check-out" fill="#4F8EF7" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-sm bg-[#34C759]" />Check-in</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-sm bg-[#4F8EF7]" />Check-out</span>
         </div>
       </CardContent>
     </Card>
@@ -260,6 +323,7 @@ export default function DashboardPage() {
   const showTripKpi = ["SUPER_ADMIN", "TERMINAL_ADMIN", "AUDITOR", "SECURITY", "TRANSPORTER", "CLIENT", "TRAFFIC_CONTROLLER"].includes(role)
   const showFleet = ["SUPER_ADMIN", "TERMINAL_ADMIN", "SECURITY", "TRANSPORTER", "TRAFFIC_CONTROLLER"].includes(role)
   const showBayHeatmap = ["SUPER_ADMIN", "TERMINAL_ADMIN", "AUDITOR", "TRAFFIC_CONTROLLER"].includes(role)
+  const showMovements = ["SUPER_ADMIN", "TERMINAL_ADMIN", "TRAFFIC_CONTROLLER", "SECURITY"].includes(role)
   const topCardCount = [showTop5, showTripKpi, showFleet].filter(Boolean).length
   const showFleetCompanion = showFleet && topCardCount === 1
   const showTopGlance = role === "SUPER_ADMIN"
@@ -339,7 +403,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {showTop5 && <Top5Card />}
           {showTripKpi && <TripKPICard />}
-          {showFleet && <FleetCard />}
+          {showFleet && <GateActivityCard />}
           {showTopGlance && renderTodayAtGlanceCard()}
           {showFleetCompanion && (
             <Card>
@@ -370,6 +434,8 @@ export default function DashboardPage() {
             </Card>
           )}
         </div>
+
+        {showMovements && <TruckMovementsCard />}
 
         {showBayHeatmap && <BayHeatmap />}
 
