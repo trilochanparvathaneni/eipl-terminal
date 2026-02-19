@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { logger } from './logger'
+import { sendEmail } from './email/resend-client'
 
 export async function sendNotification(params: {
   userId: string
@@ -20,11 +21,17 @@ export async function sendNotification(params: {
     })
 
     if (channel === 'EMAIL') {
-      // Mocked email - just log to console
-      logger.info(
-        { to: params.userId, subject: params.subject },
-        `[MOCKED EMAIL] ${params.subject}: ${params.body}`
-      )
+      const userRecord = await prisma.user.findUnique({
+        where: { id: params.userId },
+        select: { email: true },
+      })
+      if (userRecord?.email) {
+        await sendEmail({
+          to: userRecord.email,
+          subject: params.subject,
+          html: `<p>${params.body}</p>`,
+        }).catch((err) => logger.error({ err }, 'Email delivery failed'))
+      }
     }
   } catch (error) {
     logger.error({ error, params }, 'Failed to send notification')

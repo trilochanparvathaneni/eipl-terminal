@@ -69,7 +69,8 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
   const [messages, setMessages] = useState<Message[]>([])
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const esRef = useRef<EventSource | null>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -77,6 +78,9 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
       if (res.ok) {
         const data = await res.json()
         setMessages(data.messages)
+        if (data.messages.length > 0) {
+          lastMessageIdRef.current = data.messages[data.messages.length - 1].id
+        }
       }
     } catch {
       // ignore
@@ -85,11 +89,37 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
 
   useEffect(() => {
     fetchMessages()
-    intervalRef.current = setInterval(fetchMessages, 5000)
+
+    const url = lastMessageIdRef.current
+      ? `/api/comms/conversations/${conversationId}/stream?lastId=${lastMessageIdRef.current}`
+      : `/api/comms/conversations/${conversationId}/stream`
+
+    const es = new EventSource(url)
+    esRef.current = es
+
+    es.addEventListener("message", (e) => {
+      const payload = JSON.parse(e.data)
+      setMessages((prev) =>
+        prev.some((m) => m.id === payload.message.id) ? prev : [...prev, payload.message]
+      )
+    })
+
+    es.addEventListener("cursor", (e) => {
+      const payload = JSON.parse(e.data)
+      lastMessageIdRef.current = payload.lastId
+    })
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      es.close()
+      esRef.current = null
     }
-  }, [fetchMessages])
+  }, [conversationId, fetchMessages])
+
+  // Read-receipt: mark conversation read on open and as new messages arrive
+  useEffect(() => {
+    if (!conversationId) return
+    fetch(`/api/comms/conversations/${conversationId}/read`, { method: "PATCH" }).catch(() => {})
+  }, [conversationId, messages.length])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })

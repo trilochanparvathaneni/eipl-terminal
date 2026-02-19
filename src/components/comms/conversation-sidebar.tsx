@@ -21,6 +21,7 @@ interface ConversationSidebarProps {
 
 export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [dialogOpen, setDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -38,14 +39,32 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
     }
   }
 
+  async function fetchUnreadCounts() {
+    try {
+      const res = await fetch("/api/comms/conversations/unread-counts")
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadCounts(data.unreadCounts)
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     fetchConversations()
+    fetchUnreadCounts()
   }, [])
 
   function handleCreated(id: string) {
     fetchConversations()
     onSelect(id)
     setDialogOpen(false)
+  }
+
+  function handleSelect(id: string) {
+    onSelect(id)
+    setTimeout(fetchUnreadCounts, 800)
   }
 
   return (
@@ -86,21 +105,35 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent text-foreground"
             )}
-            onClick={() => onSelect(conv.id)}
+            onClick={() => handleSelect(conv.id)}
           >
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium truncate">{conv.title}</p>
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0",
-                  conv.audience === "INTERNAL_ONLY"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-amber-100 text-amber-700",
-                  activeId === conv.id && "bg-white/20 text-white"
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full",
+                    conv.audience === "INTERNAL_ONLY"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-amber-100 text-amber-700",
+                    activeId === conv.id && "bg-white/20 text-white"
+                  )}
+                >
+                  {conv.audience === "INTERNAL_ONLY" ? "Internal" : "Mixed"}
+                </span>
+                {(unreadCounts[conv.id] ?? 0) > 0 && (
+                  <span
+                    className={cn(
+                      "min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1",
+                      activeId === conv.id
+                        ? "bg-white text-primary"
+                        : "bg-primary text-primary-foreground"
+                    )}
+                  >
+                    {unreadCounts[conv.id] > 99 ? "99+" : unreadCounts[conv.id]}
+                  </span>
                 )}
-              >
-                {conv.audience === "INTERNAL_ONLY" ? "Internal" : "Mixed"}
-              </span>
+              </div>
             </div>
             <p className="text-[11px] mt-0.5 opacity-70">
               {conv._count.messages} message{conv._count.messages !== 1 ? "s" : ""}

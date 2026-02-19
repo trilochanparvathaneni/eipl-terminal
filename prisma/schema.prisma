@@ -904,6 +904,7 @@ model ConversationMember {
   userId         String
   memberRole     MemberRole @default(MEMBER)
   joinedAt       DateTime   @default(now())
+  lastReadAt     DateTime?  // track per-member read position
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id])
@@ -934,12 +935,14 @@ model MessageMention {
   mentionedUserId String
   mentionType     MentionType
   createdAt       DateTime    @default(now())
+  digestedAt      DateTime?   // marks mention as sent in a digest email
 
   message       CommMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   mentionedUser User        @relation("MentionedUser", fields: [mentionedUserId], references: [id])
 
   @@index([messageId])
   @@index([mentionedUserId])
+  @@index([digestedAt])
 }
 
 model Task {
