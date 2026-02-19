@@ -24,6 +24,7 @@ import {
   Crosshair,
   TrendingUp,
   MonitorDot,
+  MessageSquare,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -42,6 +43,7 @@ const iconMap: Record<string, any> = {
   "Yard Console": Crosshair,
   "Forecast": TrendingUp,
   "Live Ops": MonitorDot,
+  "Communications": MessageSquare,
 }
 
 export function Sidebar() {

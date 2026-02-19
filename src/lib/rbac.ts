@@ -74,6 +74,12 @@ export const ROLE_PERMISSIONS: Record<string, Role[]> = {
 
   // Live Ops Command Panel
   'live_ops:read': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SECURITY],
+
+  // Communications
+  'comms:read':  [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+  'comms:write': [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.TRAFFIC_CONTROLLER],
+  'tasks:read':  [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+  'tasks:write': [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.TRAFFIC_CONTROLLER, Role.SECURITY, Role.HSE_OFFICER, Role.SURVEYOR],
 }
 
 export function hasPermission(role: Role, permission: string): boolean {
@@ -168,6 +174,10 @@ export function getNavItems(role: Role): NavItem[] {
 
   if (hasPermission(role, 'live_ops:read')) {
     items.push({ label: 'Live Ops', href: '/live-ops' })
+  }
+
+  if (hasPermission(role, 'comms:read')) {
+    items.push({ label: 'Communications', href: '/communications' })
   }
 
   if (hasPermission(role, 'chat:use')) {

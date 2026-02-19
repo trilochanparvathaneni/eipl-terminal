@@ -226,6 +226,14 @@ model User {
   chatConversations    ChatConversation[]
   formSubmissions      FormSubmission[]
 
+  // Communications back-relations
+  conversationsCreated    Conversation[]         @relation("ConvCreator")
+  conversationMemberships ConversationMember[]
+  commMessagesSent        CommMessage[]          @relation("MessageSender")
+  mentionsReceived        MessageMention[]       @relation("MentionedUser")
+  tasksAssigned           Task[]                 @relation("TaskAssignee")
+  tasksCreated            Task[]                 @relation("TaskCreator")
+
   @@index([role])
   @@index([email])
 }
@@ -774,6 +782,42 @@ model AuditLog {
   @@index([createdAt])
 }
 
+// ── Communications Enums ─────────────────────────────────────────────────────
+
+enum ConvAudience {
+  INTERNAL_ONLY
+  MIXED
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum MentionType {
+  INTERNAL
+  EXTERNAL
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskVisibility {
+  INTERNAL_ONLY
+  SHARED_WITH_CLIENT
+}
+
 // ── Chat & RAG ────────────────────────────────────────────────────────────
 
 enum FormSubmissionStatus {
@@ -836,4 +880,99 @@ model FormSubmission {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId, formType])
+}
+
+// ── Communications Models ────────────────────────────────────────────────────
+
+model Conversation {
+  id              String       @id @default(cuid())
+  title           String
+  audience        ConvAudience @default(INTERNAL_ONLY)
+  createdByUserId String
+  createdAt       DateTime     @default(now())
+
+  createdBy User                 @relation("ConvCreator", fields: [createdByUserId], references: [id])
+  members   ConversationMember[]
+  messages  CommMessage[]
+
+  @@index([createdByUserId])
+  @@index([audience])
+}
+
+model ConversationMember {
+  conversationId String
+  userId         String
+  memberRole     MemberRole @default(MEMBER)
+  joinedAt       DateTime   @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model CommMessage {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  body           String
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User             @relation("MessageSender", fields: [senderId], references: [id])
+  mentions     MessageMention[]
+  taskLinks    TaskLink[]
+
+  @@index([conversationId, createdAt(sort: Desc)])
+}
+
+model MessageMention {
+  id              String      @id @default(cuid())
+  messageId       String
+  mentionedUserId String
+  mentionType     MentionType
+  createdAt       DateTime    @default(now())
+
+  message       CommMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mentionedUser User        @relation("MentionedUser", fields: [mentionedUserId], references: [id])
+
+  @@index([messageId])
+  @@index([mentionedUserId])
+}
+
+model Task {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?
+  assigneeId      String?
+  createdByUserId String
+  dueAt           DateTime?
+  priority        TaskPriority   @default(MEDIUM)
+  status          TaskStatus     @default(OPEN)
+  visibility      TaskVisibility @default(INTERNAL_ONLY)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  assignee   User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy  User       @relation("TaskCreator", fields: [createdByUserId], references: [id])
+  taskLinks  TaskLink[]
+
+  @@index([assigneeId])
+  @@index([createdByUserId])
+  @@index([status])
+}
+
+model TaskLink {
+  taskId         String
+  conversationId String
+  messageId      String
+
+  task    Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  message CommMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, conversationId, messageId])
+  @@index([conversationId])
+  @@index([messageId])
 }

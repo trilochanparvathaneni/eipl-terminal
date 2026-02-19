@@ -59,6 +59,10 @@ const V1_ROLE_PERMISSIONS: Record<string, Role[]> = {
   "form:submit": [Role.CLIENT, Role.TRANSPORTER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
   "forecast:read": [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
   "live_ops:read": [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SECURITY],
+  "comms:read":  [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+  "comms:write": [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.TRAFFIC_CONTROLLER],
+  "tasks:read":  [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+  "tasks:write": [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.TRAFFIC_CONTROLLER, Role.SECURITY, Role.HSE_OFFICER, Role.SURVEYOR],
 }
 
 function checkPermission(role: Role, permission: string): boolean {

@@ -85,6 +85,12 @@ export const P = {
 
   // ── Live Ops Command Panel ───────────────────────────────────────────────
   LIVE_OPS_READ: "live_ops:read",
+
+  // ── Communications ───────────────────────────────────────────────────────
+  COMMS_READ:  "comms:read",
+  COMMS_WRITE: "comms:write",
+  TASKS_READ:  "tasks:read",
+  TASKS_WRITE: "tasks:write",
 } as const
 
 export type Permission = (typeof P)[keyof typeof P]

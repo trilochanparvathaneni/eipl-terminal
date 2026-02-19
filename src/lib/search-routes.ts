@@ -8,6 +8,7 @@ export type RouteCategory =
   | "Documents"
   | "Administration"
   | "Account"
+  | "Communications"
 
 export interface SearchableRoute {
   id: string
@@ -196,6 +197,15 @@ export const SEARCHABLE_ROUTES: SearchableRoute[] = [
     roles: [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SECURITY],
     priority: 9,
   },
+  {
+    id: "communications",
+    name: "Communications",
+    path: "/communications",
+    category: "Communications",
+    keywords: ["chat", "messages", "threads", "mentions", "tasks", "discuss", "team", "collaborate"],
+    roles: [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
+    priority: 8,
+  },
   // Quick actions & sub-pages
   {
     id: "transporter-qr",
@@ -259,4 +269,5 @@ export const CATEGORY_CONFIG: Record<RouteCategory, string> = {
   Documents: "bg-emerald-100 text-emerald-700",
   Administration: "bg-purple-100 text-purple-700",
   Account: "bg-indigo-100 text-indigo-700",
+  Communications: "bg-violet-100 text-violet-700",
 }
