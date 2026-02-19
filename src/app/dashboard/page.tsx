@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { statusColor } from "@/lib/utils"
 import Link from "next/link"
-import { Activity, ArrowRight, BarChart3, Calendar, CirclePause, Clock, MapPin, RefreshCw, Truck, Wrench } from "lucide-react"
+import { Activity, ArrowRight, BarChart3, Calendar, CirclePause, Clock, PackageCheck, RefreshCw, Truck, Wrench } from "lucide-react"
 import { BayHeatmap } from "@/components/dashboard/BayHeatmap"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
@@ -152,7 +152,7 @@ function TripKPICard() {
     { label: "Total Trips", value: Math.round(223 * f).toLocaleString(), delta: "+12%", up: true },
     { label: "On-Time Delivery", value: "94.2%", delta: "+2.1%", up: true },
     { label: "Avg Turnaround", value: `${(18 / Math.max(f, 1) + 4).toFixed(1)}h`, delta: "-8%", up: false },
-    { label: "Total Distance", value: `${fmt(Math.round(34200 * f))} km`, delta: "+9%", up: true },
+    { label: "Trucks Loaded", value: Math.round(198 * f).toLocaleString(), delta: "+11%", up: true },
   ]
   const trend = periods[per].labels.map((l) => ({
     label: l,
@@ -167,7 +167,7 @@ function TripKPICard() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-3 mb-4">
-          {[Truck, Clock, RefreshCw, MapPin].map((Icon, i) => (
+          {[Truck, Clock, RefreshCw, PackageCheck].map((Icon, i) => (
             <div key={kpis[i].label} className="rounded-xl bg-muted/50 p-3.5">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11.5px] font-semibold text-muted-foreground">{kpis[i].label}</span>
@@ -201,11 +201,11 @@ function FleetCard() {
   const { per } = useContext(PeriodContext)
   const f = periods[per].f
   const vehicles = [
-    { name: "Tanker 01", status: "active", trips: Math.round(18 * f), km: Math.round(4200 * f), util: 87 },
-    { name: "Tanker 02", status: "active", trips: Math.round(15 * f), km: Math.round(3600 * f), util: 78 },
-    { name: "Tanker 03", status: "maintenance", trips: Math.round(12 * f), km: Math.round(2900 * f), util: 62 },
-    { name: "Tanker 04", status: "active", trips: Math.round(10 * f), km: Math.round(2400 * f), util: 71 },
-    { name: "Tanker 05", status: "idle", trips: Math.round(6 * f), km: Math.round(1100 * f), util: 34 },
+    { name: "Tanker 01", status: "active", trips: Math.round(18 * f), util: 87 },
+    { name: "Tanker 02", status: "active", trips: Math.round(15 * f), util: 78 },
+    { name: "Tanker 03", status: "maintenance", trips: Math.round(12 * f), util: 62 },
+    { name: "Tanker 04", status: "active", trips: Math.round(10 * f), util: 71 },
+    { name: "Tanker 05", status: "idle", trips: Math.round(6 * f), util: 34 },
   ]
   const fleetUtil = Math.round(vehicles.reduce((a, v) => a + v.util, 0) / vehicles.length)
 
@@ -234,7 +234,7 @@ function FleetCard() {
               <div key={v.name} className="flex items-center gap-3 py-2 border-b last:border-0">
                 <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[13px] font-semibold text-gray-800 w-20 shrink-0">{v.name}</span>
-                <span className="text-xs text-gray-500 flex-1 truncate">{v.trips} trips · {v.km.toLocaleString()} km</span>
+                <span className="text-xs text-gray-500 flex-1 truncate">{v.trips} trips</span>
                 <div className="w-14 flex items-center gap-1.5 shrink-0">
                   <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${v.util}%`, background: v.util > 70 ? "#34C759" : v.util > 40 ? "#F5A623" : "#E5484D" }} />
