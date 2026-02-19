@@ -82,6 +82,9 @@ export const P = {
 
   // ── Forecast & Prediction ─────────────────────────────────────────────────
   FORECAST_READ: "forecast:read",
+
+  // ── Live Ops Command Panel ───────────────────────────────────────────────
+  LIVE_OPS_READ: "live_ops:read",
 } as const
 
 export type Permission = (typeof P)[keyof typeof P]

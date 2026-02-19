@@ -23,6 +23,7 @@ import {
   FileCheck,
   Crosshair,
   TrendingUp,
+  MonitorDot,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -40,6 +41,7 @@ const iconMap: Record<string, any> = {
   "Doc Review": FileCheck,
   "Yard Console": Crosshair,
   "Forecast": TrendingUp,
+  "Live Ops": MonitorDot,
 }
 
 export function Sidebar() {

@@ -71,6 +71,9 @@ export const ROLE_PERMISSIONS: Record<string, Role[]> = {
 
   // Forecast & Prediction (V2)
   'forecast:read': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
+
+  // Live Ops Command Panel
+  'live_ops:read': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SECURITY],
 }
 
 export function hasPermission(role: Role, permission: string): boolean {
@@ -161,6 +164,10 @@ export function getNavItems(role: Role): NavItem[] {
 
   if (hasPermission(role, 'forecast:read')) {
     items.push({ label: 'Forecast', href: '/forecast' })
+  }
+
+  if (hasPermission(role, 'live_ops:read')) {
+    items.push({ label: 'Live Ops', href: '/live-ops' })
   }
 
   if (hasPermission(role, 'chat:use')) {

@@ -187,6 +187,15 @@ export const SEARCHABLE_ROUTES: SearchableRoute[] = [
     roles: [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
     priority: 7,
   },
+  {
+    id: "live-ops",
+    name: "Live Ops Command Panel",
+    path: "/live-ops",
+    category: "Operations",
+    keywords: ["live", "ops", "command", "panel", "gantry", "bay", "weighbridge", "funnel", "real-time", "movements", "trucks", "bottleneck", "congestion"],
+    roles: [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.SECURITY],
+    priority: 9,
+  },
   // Quick actions & sub-pages
   {
     id: "transporter-qr",
