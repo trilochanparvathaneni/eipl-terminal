@@ -57,6 +57,7 @@ const V1_ROLE_PERMISSIONS: Record<string, Role[]> = {
   "controller:assign_arm": [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
   "chat:use": [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
   "form:submit": [Role.CLIENT, Role.TRANSPORTER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
+  "forecast:read": [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
 }
 
 function checkPermission(role: Role, permission: string): boolean {

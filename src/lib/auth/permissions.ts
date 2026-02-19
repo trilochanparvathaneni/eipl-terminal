@@ -79,6 +79,9 @@ export const P = {
   // ── Chat & Forms ─────────────────────────────────────────────────────────
   CHAT_USE: "chat:use",
   FORM_SUBMIT: "form:submit",
+
+  // ── Forecast & Prediction ─────────────────────────────────────────────────
+  FORECAST_READ: "forecast:read",
 } as const
 
 export type Permission = (typeof P)[keyof typeof P]

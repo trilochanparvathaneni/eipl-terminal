@@ -178,6 +178,15 @@ export const SEARCHABLE_ROUTES: SearchableRoute[] = [
     roles: ALL_ROLES,
     priority: 1,
   },
+  {
+    id: "forecast",
+    name: "Forecast & Recommendations",
+    path: "/forecast",
+    category: "Operations",
+    keywords: ["forecast", "prediction", "congestion", "risk", "queue", "simulation", "recommendations", "2-hour"],
+    roles: [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
+    priority: 7,
+  },
   // Quick actions & sub-pages
   {
     id: "transporter-qr",

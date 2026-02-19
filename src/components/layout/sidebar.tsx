@@ -22,6 +22,7 @@ import {
   FolderOpen,
   FileCheck,
   Crosshair,
+  TrendingUp,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -38,6 +39,7 @@ const iconMap: Record<string, any> = {
   Documents: FolderOpen,
   "Doc Review": FileCheck,
   "Yard Console": Crosshair,
+  "Forecast": TrendingUp,
 }
 
 export function Sidebar() {

@@ -68,6 +68,9 @@ export const ROLE_PERMISSIONS: Record<string, Role[]> = {
   // Chat & Forms
   'chat:use': [Role.SUPER_ADMIN, Role.TERMINAL_ADMIN, Role.CLIENT, Role.TRANSPORTER, Role.SECURITY, Role.SURVEYOR, Role.HSE_OFFICER, Role.AUDITOR, Role.TRAFFIC_CONTROLLER],
   'form:submit': [Role.CLIENT, Role.TRANSPORTER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
+
+  // Forecast & Prediction (V2)
+  'forecast:read': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
 }
 
 export function hasPermission(role: Role, permission: string): boolean {
@@ -154,6 +157,10 @@ export function getNavItems(role: Role): NavItem[] {
 
   if (hasPermission(role, 'audit:read')) {
     items.push({ label: 'Audit Logs', href: '/audit-logs' })
+  }
+
+  if (hasPermission(role, 'forecast:read')) {
+    items.push({ label: 'Forecast', href: '/forecast' })
   }
 
   if (hasPermission(role, 'chat:use')) {
