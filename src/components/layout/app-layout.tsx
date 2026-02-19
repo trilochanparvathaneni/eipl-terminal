@@ -29,6 +29,8 @@ function getUserInitials(name?: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+const PUBLIC_PATHS = ["/login", "/live-ops"]
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -40,7 +42,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { shouldShow: tourActive, completeTour, resetTour } = useProductTour(userId)
 
   useEffect(() => {
-    if (status === "unauthenticated" && pathname !== "/login") {
+    if (status === "unauthenticated" && !PUBLIC_PATHS.includes(pathname)) {
       router.replace("/login")
     }
   }, [status, pathname, router])
@@ -71,7 +73,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/live-ops") {
     return <>{children}</>
   }
 
