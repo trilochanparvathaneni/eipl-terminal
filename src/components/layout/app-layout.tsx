@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Sidebar } from "./sidebar"
 import { NotificationBell } from "./notification-bell"
 import { ChatbotWidget } from "./chatbot-widget"
-import { BrandMark } from "@/components/brand/BrandMark"
 import { resolveTheme } from "@/lib/brand/theme"
 import { getNavItems } from "@/lib/rbac"
 import {
@@ -116,11 +115,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-4 w-4" />
           </button>
-
-          {/* Brand mark */}
-          <div className="flex items-center shrink-0">
-            <BrandMark theme={theme} size={28} variant="icon" />
-          </div>
 
           {/* Global search — centered on md+ */}
           <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
