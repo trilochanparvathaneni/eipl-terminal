@@ -4,19 +4,24 @@ import { embedBatch, embeddingToSql } from "./embedder"
 import { logger } from "@/lib/logger"
 import { randomUUID } from "crypto"
 
+export interface IndexResult {
+  chunkCount: number
+  vectorCount: number
+  embeddingError: string | null
+}
+
 /**
  * Chunk a text, generate embeddings, and store KnowledgeChunks.
- * Returns the number of chunks created.
  */
 export async function indexKnowledgeDocument(
   documentId: string,
   orgSlug: string,
   text: string
-): Promise<number> {
-  if (!text.trim()) return 0
+): Promise<IndexResult> {
+  if (!text.trim()) return { chunkCount: 0, vectorCount: 0, embeddingError: null }
 
   const chunks = chunkText(text, { chunkSize: 500, overlap: 100 })
-  if (chunks.length === 0) return 0
+  if (chunks.length === 0) return { chunkCount: 0, vectorCount: 0, embeddingError: null }
 
   // Attempt to embed all chunks; fall back to NULL embeddings if unavailable.
   let embeddings: (number[] | null)[] = new Array(chunks.length).fill(null)
@@ -52,12 +57,14 @@ export async function indexKnowledgeDocument(
     }
   }
 
+  const vectorCount = embeddings.filter(Boolean).length
+
   if (embeddingError) {
     logger.info({ documentId, chunks: chunks.length }, "Chunks stored (text-only, no vectors)")
   }
 
-  logger.info({ documentId, orgSlug, chunks: chunks.length }, "Knowledge document indexed")
-  return chunks.length
+  logger.info({ documentId, orgSlug, chunks: chunks.length, vectorCount }, "Knowledge document indexed")
+  return { chunkCount: chunks.length, vectorCount, embeddingError }
 }
 
 /**

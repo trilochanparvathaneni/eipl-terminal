@@ -81,23 +81,19 @@ export async function POST(req: NextRequest) {
 
   // ── Chunk + embed + store KnowledgeChunks ──────────────────────────────────
   let chunkCount = 0
+  let vectorCount = 0
   let warning: string | undefined
   try {
-    chunkCount = await indexKnowledgeDocument(doc.id, orgSlug, extractedText)
+    const result = await indexKnowledgeDocument(doc.id, orgSlug, extractedText)
+    chunkCount = result.chunkCount
+    vectorCount = result.vectorCount
+    if (result.embeddingError) {
+      warning = `Embeddings unavailable — text search only. Error: ${result.embeddingError}`
+    }
   } catch (err) {
     await prisma.knowledgeDocument.delete({ where: { id: doc.id } }).catch(() => {})
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: "Indexing failed", detail: msg }, { status: 500 })
-  }
-
-  // Check if chunks were stored without embeddings (text-only mode)
-  const vectorCount = await prisma.$queryRawUnsafe<{ n: bigint }[]>(
-    `SELECT COUNT(*) AS n FROM "KnowledgeChunk" WHERE "documentId" = $1 AND embedding IS NOT NULL`,
-    doc.id
-  ).then((r) => Number(r[0]?.n ?? 0)).catch(() => 0)
-
-  if (vectorCount === 0 && chunkCount > 0) {
-    warning = "Embeddings unavailable — document indexed for text search only. Check OpenAI billing to enable semantic search."
   }
 
   await createAuditLog({
