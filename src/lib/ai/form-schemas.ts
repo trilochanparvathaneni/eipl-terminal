@@ -116,9 +116,154 @@ const vendorKycSchema: FormSchema = {
   fields: vendorKycFields,
 }
 
+// ── Client Onboarding ────────────────────────────────────────────────────────
+
+const clientOnboardingFields: Record<string, FieldDef> = {
+  company_name:         { label: "Company Name",         type: "text",  required: true },
+  gstin:                { label: "GSTIN",                type: "text",  required: true },
+  pan:                  { label: "PAN",                  type: "text",  required: true,  redact: true },
+  registered_address:   { label: "Registered Address",   type: "text",  required: true },
+  contact_person:       { label: "Contact Person",       type: "text",  required: true },
+  contact_email:        { label: "Contact Email",        type: "email", required: true },
+  contact_phone:        { label: "Contact Phone",        type: "phone", required: true },
+  billing_address:      { label: "Billing Address",      type: "text",  required: false },
+  authorized_signatory: { label: "Authorized Signatory", type: "text",  required: false },
+}
+
+const clientOnboardingSchema: FormSchema = {
+  label: "Client Onboarding",
+  description: "Onboard a new client — fill directly or upload documents to auto-fill",
+  zodSchema: z.object(
+    Object.fromEntries(Object.keys(clientOnboardingFields).map((k) => [k, extractedFieldZod]))
+  ),
+  openaiJsonSchema: {
+    name: "client_onboarding",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: Object.fromEntries(
+        Object.entries(clientOnboardingFields).map(([key, f]) => [key, fieldSchema(f.label, f.required)])
+      ),
+      required: Object.keys(clientOnboardingFields),
+      additionalProperties: false,
+    },
+  },
+  fields: clientOnboardingFields,
+}
+
+// ── Transporter Onboarding ───────────────────────────────────────────────────
+
+const transporterOnboardingFields: Record<string, FieldDef> = {
+  company_name:        { label: "Company Name",          type: "text",  required: true },
+  gstin:               { label: "GSTIN",                 type: "text",  required: true },
+  pan:                 { label: "PAN",                   type: "text",  required: true,  redact: true },
+  registered_address:  { label: "Registered Address",    type: "text",  required: true },
+  primary_contact:     { label: "Primary Contact",       type: "text",  required: true },
+  contact_email:       { label: "Contact Email",         type: "email", required: true },
+  contact_phone:       { label: "Contact Phone",         type: "phone", required: true },
+  fleet_size:          { label: "Fleet Size",            type: "text",  required: false },
+  vehicle_types:       { label: "Vehicle Types",         type: "text",  required: false },
+  insurance_policy_no: { label: "Insurance Policy No.",  type: "text",  required: false },
+  insurance_expiry:    { label: "Insurance Expiry Date", type: "date",  required: false },
+}
+
+const transporterOnboardingSchema: FormSchema = {
+  label: "Transporter Onboarding",
+  description: "Onboard a new transporter — fill directly or upload documents to auto-fill",
+  zodSchema: z.object(
+    Object.fromEntries(Object.keys(transporterOnboardingFields).map((k) => [k, extractedFieldZod]))
+  ),
+  openaiJsonSchema: {
+    name: "transporter_onboarding",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: Object.fromEntries(
+        Object.entries(transporterOnboardingFields).map(([key, f]) => [key, fieldSchema(f.label, f.required)])
+      ),
+      required: Object.keys(transporterOnboardingFields),
+      additionalProperties: false,
+    },
+  },
+  fields: transporterOnboardingFields,
+}
+
+// ── Surveyor Onboarding ──────────────────────────────────────────────────────
+
+const surveyorOnboardingFields: Record<string, FieldDef> = {
+  full_name:           { label: "Full Name",              type: "text",  required: true },
+  company_name:        { label: "Company Name",           type: "text",  required: true },
+  registration_no:     { label: "Registration Number",    type: "text",  required: true },
+  certification:       { label: "Certification",          type: "text",  required: false },
+  certification_expiry:{ label: "Certification Expiry",   type: "date",  required: false },
+  email:               { label: "Email",                  type: "email", required: true },
+  phone:               { label: "Phone",                  type: "phone", required: true },
+  address:             { label: "Address",                type: "text",  required: false },
+  area_of_operation:   { label: "Area of Operation",      type: "text",  required: false },
+}
+
+const surveyorOnboardingSchema: FormSchema = {
+  label: "Surveyor Onboarding",
+  description: "Onboard a new surveyor — fill directly or upload documents to auto-fill",
+  zodSchema: z.object(
+    Object.fromEntries(Object.keys(surveyorOnboardingFields).map((k) => [k, extractedFieldZod]))
+  ),
+  openaiJsonSchema: {
+    name: "surveyor_onboarding",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: Object.fromEntries(
+        Object.entries(surveyorOnboardingFields).map(([key, f]) => [key, fieldSchema(f.label, f.required)])
+      ),
+      required: Object.keys(surveyorOnboardingFields),
+      additionalProperties: false,
+    },
+  },
+  fields: surveyorOnboardingFields,
+}
+
+// ── HSE Contractor ───────────────────────────────────────────────────────────
+
+const hseContractorFields: Record<string, FieldDef> = {
+  company_name:     { label: "Company Name",      type: "text",  required: true },
+  gstin:            { label: "GSTIN",             type: "text",  required: false },
+  services_offered: { label: "Services Offered",  type: "text",  required: true },
+  hse_cert_no:      { label: "HSE Certificate No", type: "text", required: false },
+  cert_expiry:      { label: "Certificate Expiry", type: "date", required: false },
+  contact_person:   { label: "Contact Person",    type: "text",  required: true },
+  email:            { label: "Email",             type: "email", required: true },
+  phone:            { label: "Phone",             type: "phone", required: true },
+}
+
+const hseContractorSchema: FormSchema = {
+  label: "HSE Contractor",
+  description: "Register an HSE contractor — fill directly or upload documents to auto-fill",
+  zodSchema: z.object(
+    Object.fromEntries(Object.keys(hseContractorFields).map((k) => [k, extractedFieldZod]))
+  ),
+  openaiJsonSchema: {
+    name: "hse_contractor",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: Object.fromEntries(
+        Object.entries(hseContractorFields).map(([key, f]) => [key, fieldSchema(f.label, f.required)])
+      ),
+      required: Object.keys(hseContractorFields),
+      additionalProperties: false,
+    },
+  },
+  fields: hseContractorFields,
+}
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 
 export const FORM_SCHEMAS: Record<string, FormSchema> = {
-  driver_onboarding: driverOnboardingSchema,
-  vendor_kyc: vendorKycSchema,
+  driver_onboarding:       driverOnboardingSchema,
+  vendor_kyc:              vendorKycSchema,
+  client_onboarding:       clientOnboardingSchema,
+  transporter_onboarding:  transporterOnboardingSchema,
+  surveyor_onboarding:     surveyorOnboardingSchema,
+  hse_contractor:          hseContractorSchema,
 }

@@ -26,9 +26,15 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
   }
 
   return (
-    <div className="-m-4 lg:-m-8 -mt-20 pt-12 flex h-screen overflow-hidden">
+    /*
+     * Full-bleed layout that fills the viewport from just below the fixed header
+     * to the bottom. Negative margins cancel the parent padding added by app-layout,
+     * then we add back exactly the header height as top padding.
+     * overflow-hidden on the wrapper keeps all scrolling contained within panels.
+     */
+    <div className="-m-4 lg:-m-8 -mt-16 lg:-mt-20 pt-12 flex h-screen overflow-hidden">
       {/* Left panel — Conversation list */}
-      <div className="w-64 flex-shrink-0 border-r bg-background flex flex-col">
+      <div className="w-56 lg:w-64 shrink-0 border-r bg-background flex flex-col">
         <ConversationSidebar
           activeId={activeConvId}
           onSelect={setActiveConvId}

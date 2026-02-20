@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
+import { Menu, Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
 import { GlobalSearch } from "./global-search"
 import { ProductTour } from "@/components/onboarding/product-tour"
 import { useProductTour } from "@/hooks/use-product-tour"
@@ -41,11 +41,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const userId = (session?.user as any)?.id as string | undefined
   const { shouldShow: tourActive, completeTour, resetTour } = useProductTour(userId)
 
+  // Mobile sidebar state lives here so the hamburger can live inside the header
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
   useEffect(() => {
     if (status === "unauthenticated" && !PUBLIC_PATHS.includes(pathname)) {
       router.replace("/login")
     }
   }, [status, pathname, router])
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     function handleGlobalSlashShortcut(e: KeyboardEvent) {
@@ -82,25 +90,49 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const userName = session.user.name || "User"
   const userRole = (session.user as any).role?.replace(/_/g, " ") || "User"
   const initials = getUserInitials(userName)
+
   return (
     <div className="min-h-screen">
-      <Sidebar />
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
 
+      {/*
+        Header spans full width on all screen sizes.
+        On mobile (< lg): left section starts at pl-2, with hamburger button first,
+          then brand mark — no more overlap.
+        On desktop (lg+): left 256px is occupied by the fixed sidebar, so we
+          add lg:pl-64 to push header content right of the sidebar.
+      */}
       <header className="fixed top-0 right-0 left-0 z-30 bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:pl-64">
-        <div className="flex h-12 items-center gap-3 px-3 lg:px-5">
-          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+        <div className="flex h-12 items-center gap-2 px-2 lg:gap-3 lg:px-5">
+
+          {/* Hamburger — only visible on mobile (below lg) */}
+          <button
+            className="lg:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+            onClick={() => setMobileSidebarOpen((v) => !v)}
+            aria-label="Toggle navigation"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+
+          {/* Brand mark + product name */}
+          <div className="flex items-center gap-2 min-w-0 shrink-0">
             <BrandMark theme={theme} size={28} variant="icon" />
             <span className="hidden sm:inline truncate font-semibold tracking-tight text-[15px] text-slate-800">
               {theme.productName}
             </span>
           </div>
 
+          {/* Global search — centered on md+ */}
           <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
             {role && <GlobalSearch ref={searchRef} role={role} onTour={resetTour} />}
           </div>
 
           <div className="flex-1 md:hidden" />
 
+          {/* Right controls */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
             <div className="hidden xl:flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
               {theme.productName}
@@ -131,7 +163,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <div>
                     <p className="font-medium">{userName}</p>
                     <p className="text-xs text-muted-foreground font-normal">{session.user.email}</p>
-                    <p className="text-xs text-muted-foreground font-normal capitalize">{userRole.toLowerCase()}</p>
+                    <p className="text-xs text-muted-foreground font-normal capitalize">
+                      {userRole.toLowerCase()}
+                    </p>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -161,12 +195,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="lg:pl-64">
-        <div className="p-4 lg:p-8 pt-20 lg:pt-20">{children}</div>
+      {/*
+        Main content area.
+        - lg:pl-64 offsets for the fixed 256px sidebar on desktop.
+        - overflow-x-hidden prevents wide page content from causing body-level
+          horizontal scroll, which would let content slide under the fixed sidebar.
+        - pt-12 (48px) always clears the fixed header regardless of breakpoint.
+        - Additional p-4 / lg:p-8 provides breathing room around page content.
+      */}
+      <main className="lg:pl-64 overflow-x-hidden">
+        <div className="p-4 lg:p-8 pt-16 lg:pt-20">{children}</div>
       </main>
+
       <div data-tour="chatbot">
         <ChatbotWidget role={role} />
       </div>
+
       {role && (
         <ProductTour
           active={tourActive}

@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
             include: { user: { select: { id: true, name: true, role: true } } },
           },
           _count: { select: { messages: true } },
+          // contextType, contextId, contextLabel are scalar fields returned automatically
         },
       },
     },
@@ -73,6 +74,9 @@ export async function POST(req: NextRequest) {
         title: data.title,
         audience: data.audience,
         createdByUserId: user!.id,
+        ...(data.contextType && { contextType: data.contextType }),
+        ...(data.contextId && { contextId: data.contextId }),
+        ...(data.contextLabel && { contextLabel: data.contextLabel }),
         members: {
           create: [
             { userId: user!.id, memberRole: "OWNER" },

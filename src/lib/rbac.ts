@@ -181,10 +181,6 @@ export function getNavItems(role: Role): NavItem[] {
     items.push({ label: 'Communications', href: '/communications' })
   }
 
-  if (hasPermission(role, 'chat:use')) {
-    items.push({ label: 'Chat', href: '/chat' })
-  }
-
   if (hasPermission(role, 'form:submit')) {
     items.push({ label: 'Forms', href: '/forms' })
   }

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ConfidenceBadge } from "./confidence-badge"
 import { SourceTooltip } from "./source-tooltip"
-import { Upload, Loader2, CheckCircle2 } from "lucide-react"
+import { Upload, Loader2, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react"
 
 interface FieldDef {
   label: string
@@ -23,7 +23,8 @@ interface ExtractedField {
   page_or_section?: string
 }
 
-type State = "upload" | "extracting" | "review" | "submitting" | "done"
+// State only tracks the async operations; the form fields are always visible
+type State = "fill" | "extracting" | "submitting" | "done"
 
 interface FormExtractorProps {
   formType: string
@@ -31,12 +32,16 @@ interface FormExtractorProps {
 }
 
 export function FormExtractor({ formType, fields }: FormExtractorProps) {
-  const [state, setState] = useState<State>("upload")
+  const [state, setState] = useState<State>("fill")
   const [file, setFile] = useState<File | null>(null)
   const [extracted, setExtracted] = useState<Record<string, ExtractedField>>({})
-  const [formValues, setFormValues] = useState<Record<string, string>>({})
+  const [formValues, setFormValues] = useState<Record<string, string>>(
+    Object.fromEntries(Object.keys(fields).map((k) => [k, ""]))
+  )
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [uploadExpanded, setUploadExpanded] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback((f: File) => {
     setFile(f)
@@ -67,23 +72,36 @@ export function FormExtractor({ formType, fields }: FormExtractorProps) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Extraction failed" }))
         setError(err.error || "Extraction failed")
-        setState("upload")
+        setState("fill")
         return
       }
 
       const data = await res.json()
-      setExtracted(data.extracted)
+      const newExtracted: Record<string, ExtractedField> = data.extracted
 
-      // Initialize form values from extracted data
-      const values: Record<string, string> = {}
-      for (const [key, field] of Object.entries(data.extracted as Record<string, ExtractedField>)) {
-        values[key] = field.value || ""
-      }
-      setFormValues(values)
-      setState("review")
+      setExtracted(newExtracted)
+
+      // Merge AI values into form: only overwrite if AI confidence > 0.5 and user hasn't typed anything
+      setFormValues((prev) => {
+        const merged = { ...prev }
+        for (const [key, field] of Object.entries(newExtracted)) {
+          const aiField = field as ExtractedField
+          if (
+            aiField.confidence > 0.5 &&
+            aiField.value &&
+            (prev[key] === "" || prev[key] === undefined)
+          ) {
+            merged[key] = aiField.value
+          }
+        }
+        return merged
+      })
+
+      setState("fill")
+      setUploadExpanded(false) // collapse upload section after successful extract
     } catch {
       setError("Failed to extract data from document")
-      setState("upload")
+      setState("fill")
     }
   }, [file, formType])
 
@@ -105,14 +123,14 @@ export function FormExtractor({ formType, fields }: FormExtractorProps) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Submission failed" }))
         setError(err.error || "Submission failed")
-        setState("review")
+        setState("fill")
         return
       }
 
       setState("done")
     } catch {
       setError("Failed to submit form")
-      setState("review")
+      setState("fill")
     }
   }, [formType, formValues, extracted])
 
@@ -126,10 +144,11 @@ export function FormExtractor({ formType, fields }: FormExtractorProps) {
           <Button
             variant="outline"
             onClick={() => {
-              setState("upload")
+              setState("fill")
               setFile(null)
               setExtracted({})
-              setFormValues({})
+              setFormValues(Object.fromEntries(Object.keys(fields).map((k) => [k, ""])))
+              setUploadExpanded(false)
             }}
           >
             Submit Another
@@ -139,15 +158,35 @@ export function FormExtractor({ formType, fields }: FormExtractorProps) {
     )
   }
 
+  const isSubmitting = state === "submitting"
+  const isExtracting = state === "extracting"
+
   return (
     <div className="space-y-6">
-      {/* Upload zone */}
-      {(state === "upload" || state === "extracting") && (
-        <Card>
-          <CardContent className="py-8">
+      {/* Collapsible upload-to-auto-fill section */}
+      <Card>
+        <CardHeader className="py-3 px-4">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setUploadExpanded((v) => !v)}
+          >
+            <span className="text-sm font-medium">Upload document to auto-fill</span>
+            {uploadExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+        </CardHeader>
+
+        {uploadExpanded && (
+          <CardContent className="pt-0 pb-4">
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                dragOver ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950" : "border-muted-foreground/25"
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                dragOver
+                  ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950"
+                  : "border-muted-foreground/25"
               }`}
               onDragOver={(e) => {
                 e.preventDefault()
@@ -156,114 +195,126 @@ export function FormExtractor({ formType, fields }: FormExtractorProps) {
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
             >
-              <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+              <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm mb-2">
-                {file ? file.name : "Drag and drop a file here, or click to browse"}
+                {file ? file.name : "Drag a PDF or image here, or click to browse"}
               </p>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg"
                 className="hidden"
-                id="file-upload"
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (f) handleFile(f)
                 }}
               />
-              <label htmlFor="file-upload">
-                <Button variant="outline" size="sm" asChild>
-                  <span>Browse Files</span>
-                </Button>
-              </label>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Browse Files
+              </Button>
             </div>
 
             {file && (
-              <div className="mt-4 flex justify-center">
-                <Button onClick={handleExtract} disabled={state === "extracting"}>
-                  {state === "extracting" ? (
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-sm text-muted-foreground flex-1 truncate">{file.name}</span>
+                <Button
+                  size="sm"
+                  onClick={handleExtract}
+                  disabled={isExtracting}
+                >
+                  {isExtracting ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Extracting...
                     </>
                   ) : (
-                    "Extract Data"
+                    "Extract"
                   )}
                 </Button>
               </div>
             )}
+
+            {Object.keys(extracted).length > 0 && !isExtracting && (
+              <p className="text-xs text-green-600 mt-2">
+                Fields populated from document. Review and edit below.
+              </p>
+            )}
           </CardContent>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {error && (
         <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">{error}</div>
       )}
 
-      {/* Review form */}
-      {(state === "review" || state === "submitting") && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Review Extracted Data</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(fields).map(([key, fieldDef]) => {
-              const ext = extracted[key]
-              return (
-                <div key={key}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Label htmlFor={key} className="text-sm">
-                      {fieldDef.label}
-                      {fieldDef.required && <span className="text-destructive ml-0.5">*</span>}
-                    </Label>
-                    {ext && <ConfidenceBadge confidence={ext.confidence} />}
-                    {ext && (
-                      <SourceTooltip
-                        sourceQuote={ext.source_quote}
-                        pageOrSection={ext.page_or_section}
-                      />
-                    )}
-                  </div>
-                  <Input
-                    id={key}
-                    type={fieldDef.type === "date" ? "date" : "text"}
-                    value={formValues[key] || ""}
-                    onChange={(e) =>
-                      setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    placeholder={fieldDef.label}
-                    disabled={state === "submitting"}
-                  />
+      {/* Form fields — always visible */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Form Fields</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {Object.entries(fields).map(([key, fieldDef]) => {
+            const ext = extracted[key]
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor={key} className="text-sm">
+                    {fieldDef.label}
+                    {fieldDef.required && <span className="text-destructive ml-0.5">*</span>}
+                  </Label>
+                  {ext && ext.confidence > 0 && <ConfidenceBadge confidence={ext.confidence} />}
+                  {ext && (
+                    <SourceTooltip
+                      sourceQuote={ext.source_quote}
+                      pageOrSection={ext.page_or_section}
+                    />
+                  )}
                 </div>
-              )
-            })}
+                <Input
+                  id={key}
+                  type={fieldDef.type === "date" ? "date" : "text"}
+                  value={formValues[key] || ""}
+                  onChange={(e) =>
+                    setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+                  }
+                  placeholder={fieldDef.label}
+                  disabled={isSubmitting || isExtracting}
+                />
+              </div>
+            )
+          })}
 
-            <div className="flex gap-3 pt-4">
-              <Button onClick={handleSubmit} disabled={state === "submitting"}>
-                {state === "submitting" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Confirm & Save"
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setState("upload")
-                  setFile(null)
-                  setExtracted({})
-                  setFormValues({})
-                }}
-                disabled={state === "submitting"}
-              >
-                Start Over
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleSubmit} disabled={isSubmitting || isExtracting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Confirm & Save"
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFile(null)
+                setExtracted({})
+                setFormValues(Object.fromEntries(Object.keys(fields).map((k) => [k, ""])))
+                setError(null)
+              }}
+              disabled={isSubmitting || isExtracting}
+            >
+              Clear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

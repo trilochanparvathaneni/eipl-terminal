@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,27 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { X } from "lucide-react"
+
+type ContextType = "BOOKING" | "CLIENT" | "TRANSPORTER" | "INCIDENT"
+
+interface ContextResult {
+  id: string
+  label: string
+}
 
 interface NewConversationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (conversationId: string) => void
 }
+
+const CONTEXT_TYPES: { value: ContextType; label: string; color: string }[] = [
+  { value: "BOOKING",     label: "Booking",     color: "bg-blue-100 text-blue-700" },
+  { value: "CLIENT",      label: "Client",      color: "bg-green-100 text-green-700" },
+  { value: "TRANSPORTER", label: "Transporter", color: "bg-amber-100 text-amber-700" },
+  { value: "INCIDENT",    label: "Incident",    color: "bg-red-100 text-red-700" },
+]
 
 export function NewConversationDialog({
   open,
@@ -32,8 +47,32 @@ export function NewConversationDialog({
   const [selectedMembers, setSelectedMembers] = useState<
     { id: string; name: string; role: string }[]
   >([])
+
+  // Related-to context
+  const [contextType, setContextType] = useState<ContextType | "">("")
+  const [contextSearch, setContextSearch] = useState("")
+  const [contextResults, setContextResults] = useState<ContextResult[]>([])
+  const [selectedContext, setSelectedContext] = useState<ContextResult | null>(null)
+  const contextDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setTitle("")
+      setAudience("INTERNAL_ONLY")
+      setMemberSearch("")
+      setMemberResults([])
+      setSelectedMembers([])
+      setContextType("")
+      setContextSearch("")
+      setContextResults([])
+      setSelectedContext(null)
+      setError(null)
+    }
+  }, [open])
 
   async function searchMembers(query: string) {
     if (!query.trim()) {
@@ -62,6 +101,42 @@ export function NewConversationDialog({
     setMemberSearch("")
   }
 
+  function handleContextTypeChange(value: ContextType | "") {
+    setContextType(value)
+    setContextSearch("")
+    setContextResults([])
+    setSelectedContext(null)
+  }
+
+  function handleContextSearchChange(q: string) {
+    setContextSearch(q)
+    setSelectedContext(null)
+    if (contextDebounceRef.current) clearTimeout(contextDebounceRef.current)
+    if (!q.trim() || !contextType) {
+      setContextResults([])
+      return
+    }
+    contextDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/comms/context-search?type=${contextType}&q=${encodeURIComponent(q)}`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setContextResults(data.results || [])
+        }
+      } catch {
+        // ignore
+      }
+    }, 300)
+  }
+
+  function selectContextResult(result: ContextResult) {
+    setSelectedContext(result)
+    setContextSearch(result.label)
+    setContextResults([])
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
@@ -77,14 +152,18 @@ export function NewConversationDialog({
           title: title.trim(),
           audience,
           memberUserIds: selectedMembers.map((m) => m.id),
+          ...(contextType && selectedContext
+            ? {
+                contextType,
+                contextId: selectedContext.id,
+                contextLabel: selectedContext.label,
+              }
+            : {}),
         }),
       })
 
       if (res.ok) {
         const data = await res.json()
-        setTitle("")
-        setAudience("INTERNAL_ONLY")
-        setSelectedMembers([])
         onCreated(data.conversation.id)
       } else {
         const data = await res.json()
@@ -94,6 +173,8 @@ export function NewConversationDialog({
       setSubmitting(false)
     }
   }
+
+  const selectedContextMeta = CONTEXT_TYPES.find((c) => c.value === contextType)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,6 +212,67 @@ export function NewConversationDialog({
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Related to */}
+          <div className="space-y-1.5">
+            <Label>Related to (optional)</Label>
+            <select
+              className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+              value={contextType}
+              onChange={(e) => handleContextTypeChange(e.target.value as ContextType | "")}
+            >
+              <option value="">None</option>
+              {CONTEXT_TYPES.map((ct) => (
+                <option key={ct.value} value={ct.value}>
+                  {ct.label}
+                </option>
+              ))}
+            </select>
+
+            {contextType && !selectedContext && (
+              <div className="relative">
+                <Input
+                  value={contextSearch}
+                  onChange={(e) => handleContextSearchChange(e.target.value)}
+                  placeholder={`Search ${selectedContextMeta?.label ?? ""}...`}
+                />
+                {contextResults.length > 0 && (
+                  <div className="absolute top-full mt-1 left-0 right-0 bg-popover border rounded-md shadow-lg z-50 overflow-hidden">
+                    {contextResults.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                        onClick={() => selectContextResult(r)}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {contextType && selectedContext && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${selectedContextMeta?.color}`}
+                >
+                  {selectedContextMeta?.label}: {selectedContext.label}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedContext(null)
+                      setContextSearch("")
+                    }}
+                    className="ml-0.5 hover:opacity-70"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -176,7 +318,7 @@ export function NewConversationDialog({
                       }
                       className="hover:text-destructive"
                     >
-                      ×
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 ))}

@@ -785,6 +785,13 @@ model AuditLog {
 
 // ── Communications Enums ─────────────────────────────────────────────────────
 
+enum ConvContextType {
+  BOOKING
+  CLIENT
+  TRANSPORTER
+  INCIDENT
+}
+
 enum ConvAudience {
   INTERNAL_ONLY
   MIXED
@@ -886,11 +893,15 @@ model FormSubmission {
 // ── Communications Models ────────────────────────────────────────────────────
 
 model Conversation {
-  id              String       @id @default(cuid())
+  id              String           @id @default(cuid())
   title           String
-  audience        ConvAudience @default(INTERNAL_ONLY)
+  audience        ConvAudience     @default(INTERNAL_ONLY)
   createdByUserId String
-  createdAt       DateTime     @default(now())
+  createdAt       DateTime         @default(now())
+
+  contextType     ConvContextType? // linked business entity type
+  contextId       String?          // ID of the linked entity
+  contextLabel    String?          // denormalized display name
 
   createdBy User                 @relation("ConvCreator", fields: [createdByUserId], references: [id])
   members   ConversationMember[]
@@ -898,6 +909,7 @@ model Conversation {
 
   @@index([createdByUserId])
   @@index([audience])
+  @@index([contextType, contextId])
 }
 
 model ConversationMember {

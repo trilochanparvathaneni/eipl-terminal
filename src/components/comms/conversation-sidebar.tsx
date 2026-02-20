@@ -6,12 +6,23 @@ import { NewConversationDialog } from "./new-conversation-dialog"
 import { Plus, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+type ConvContextType = "BOOKING" | "CLIENT" | "TRANSPORTER" | "INCIDENT"
+
 interface Conversation {
   id: string
   title: string
   audience: string
+  contextType?: ConvContextType | null
+  contextLabel?: string | null
   _count: { messages: number }
   createdAt: string
+}
+
+const CONTEXT_PILL: Record<ConvContextType, string> = {
+  BOOKING:     "bg-blue-100 text-blue-700",
+  CLIENT:      "bg-green-100 text-green-700",
+  TRANSPORTER: "bg-amber-100 text-amber-700",
+  INCIDENT:    "bg-red-100 text-red-700",
 }
 
 interface ConversationSidebarProps {
@@ -110,6 +121,20 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium truncate">{conv.title}</p>
               <div className="flex items-center gap-1.5 flex-shrink-0">
+                {/* Context type badge */}
+                {conv.contextType && (
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                      activeId === conv.id
+                        ? "bg-white/20 text-white"
+                        : CONTEXT_PILL[conv.contextType]
+                    )}
+                    title={conv.contextLabel ?? conv.contextType}
+                  >
+                    {conv.contextType.charAt(0) + conv.contextType.slice(1).toLowerCase()}
+                  </span>
+                )}
                 <span
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full",

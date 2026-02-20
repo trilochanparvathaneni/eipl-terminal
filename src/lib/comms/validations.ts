@@ -4,6 +4,9 @@ export const createConversationSchema = z.object({
   title: z.string().min(1).max(200),
   audience: z.enum(["INTERNAL_ONLY", "MIXED"]).default("INTERNAL_ONLY"),
   memberUserIds: z.array(z.string().cuid()).min(0).default([]),
+  contextType: z.enum(["BOOKING", "CLIENT", "TRANSPORTER", "INCIDENT"]).optional(),
+  contextId: z.string().cuid().optional(),
+  contextLabel: z.string().max(200).optional(),
 })
 
 export const sendMessageSchema = z.object({
