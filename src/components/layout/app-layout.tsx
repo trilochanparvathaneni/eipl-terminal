@@ -117,12 +117,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="h-4 w-4" />
           </button>
 
-          {/* Brand mark + product name */}
-          <div className="flex items-center gap-2 min-w-0 shrink-0">
+          {/* Brand mark */}
+          <div className="flex items-center shrink-0">
             <BrandMark theme={theme} size={28} variant="icon" />
-            <span className="hidden sm:inline truncate font-semibold tracking-tight text-[15px] text-slate-800">
-              {theme.productName}
-            </span>
           </div>
 
           {/* Global search — centered on md+ */}
@@ -134,10 +131,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right controls */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
-            <div className="hidden xl:flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-              {theme.productName}
-            </div>
-
             <button
               onClick={() => searchRef.current?.focus()}
               className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-white shadow-sm transition-colors hover:bg-indigo-600"
