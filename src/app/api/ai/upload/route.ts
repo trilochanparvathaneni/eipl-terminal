@@ -63,17 +63,32 @@ export async function POST(req: NextRequest) {
 
   // ── Persist KnowledgeDocument (storagePath = "memory" — no file stored) ───
   const orgSlug = resolveOrgSlug(ctx.user)
-  const doc = await prisma.knowledgeDocument.create({
-    data: {
-      orgSlug,
-      title,
-      storagePath: "memory",
-      createdByUserId: ctx.user.id,
-    },
-  })
+
+  let doc: { id: string }
+  try {
+    doc = await prisma.knowledgeDocument.create({
+      data: {
+        orgSlug,
+        title,
+        storagePath: "memory",
+        createdByUserId: ctx.user.id,
+      },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: "DB error creating document", detail: msg }, { status: 500 })
+  }
 
   // ── Chunk + embed + store KnowledgeChunks ──────────────────────────────────
-  const chunkCount = await indexKnowledgeDocument(doc.id, orgSlug, extractedText)
+  let chunkCount = 0
+  try {
+    chunkCount = await indexKnowledgeDocument(doc.id, orgSlug, extractedText)
+  } catch (err) {
+    // Clean up the document record if indexing fails
+    await prisma.knowledgeDocument.delete({ where: { id: doc.id } }).catch(() => {})
+    const msg = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: "Indexing failed", detail: msg }, { status: 500 })
+  }
 
   await createAuditLog({
     actorUserId: ctx.user.id,

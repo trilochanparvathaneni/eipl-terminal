@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { chunkText } from "./chunker"
 import { embedBatch, embeddingToSql } from "./embedder"
 import { logger } from "@/lib/logger"
+import { randomUUID } from "crypto"
 
 /**
  * Chunk a text, generate embeddings, and store KnowledgeChunks.
@@ -30,7 +31,8 @@ export async function indexKnowledgeDocument(
 
     await prisma.$executeRawUnsafe(
       `INSERT INTO "KnowledgeChunk" ("id", "documentId", "orgSlug", "chunkIndex", "chunkText", "embedding", "createdAt")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5::vector, NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())`,
+      randomUUID(),
       documentId,
       orgSlug,
       chunkIndex,
