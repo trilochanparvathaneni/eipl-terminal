@@ -10,5 +10,6 @@ export function getGeminiClient(): GoogleGenerativeAI {
 }
 
 export const GEMINI_CHAT_MODEL  = process.env.GEMINI_CHAT_MODEL  ?? "gemini-2.0-flash"
-export const GEMINI_EMBED_MODEL = process.env.GEMINI_EMBED_MODEL ?? "text-embedding-004"
-// text-embedding-004 produces 768-dimensional vectors
+export const GEMINI_EMBED_MODEL = process.env.GEMINI_EMBED_MODEL ?? "gemini-embedding-001"
+// gemini-embedding-001 natively produces 3072 dims; we request 768 via outputDimensionality
+export const GEMINI_EMBED_DIMS  = 768
