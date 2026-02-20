@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { HelpTooltip } from "@/components/ui/help-tooltip"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -124,241 +125,263 @@ export default function SettingsPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Workspace</CardTitle>
-          <CardDescription>Defaults for how your dashboard opens and behaves.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="inline-flex items-center gap-1">
-              Default Landing Page
-              <HelpTooltip description="What it is: Page to open first after sign-in. Why it matters: Gets you to your most-used workspace faster." />
-            </Label>
-            <Select value={defaultRoute} onValueChange={setDefaultRoute}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="/dashboard">Dashboard</SelectItem>
-                <SelectItem value="/bookings">Bookings</SelectItem>
-                <SelectItem value="/schedule">Schedule</SelectItem>
-                <SelectItem value="/reports">Reports</SelectItem>
-                <SelectItem value="/notifications">Notifications</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="sidebar_collapsed"
-              checked={sidebarCollapsed}
-              onCheckedChange={(v) => setSidebarCollapsed(Boolean(v))}
-            />
-            <Label htmlFor="sidebar_collapsed" className="font-normal">
-              Start with collapsed sidebar
-            </Label>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="general" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="operations">Operations</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Readability and information density preferences.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="tooltips_enabled"
-              checked={tooltipEnabled}
-              onCheckedChange={(v) => setTooltipEnabled(Boolean(v))}
-            />
-            <Label htmlFor="tooltips_enabled" className="font-normal">
-              Show help tooltips
-            </Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="compact_density"
-              checked={compactDensity}
-              onCheckedChange={(v) => setCompactDensity(Boolean(v))}
-            />
-            <Label htmlFor="compact_density" className="font-normal">
-              Compact table density
-            </Label>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Date format</Label>
-            <Select value={dateFormat} onValueChange={setDateFormat}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DD-MMM-YYYY">DD-MMM-YYYY</SelectItem>
-                <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>Control alert behavior in this browser.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="desktop_alerts"
-              checked={desktopAlerts}
-              onCheckedChange={(v) => setDesktopAlerts(Boolean(v))}
-            />
-            <Label htmlFor="desktop_alerts" className="font-normal">Desktop pop-up alerts</Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="alert_sound"
-              checked={alertSound}
-              onCheckedChange={(v) => setAlertSound(Boolean(v))}
-            />
-            <Label htmlFor="alert_sound" className="font-normal">Play notification sound</Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="email_digest"
-              checked={emailDigest}
-              onCheckedChange={(v) => setEmailDigest(Boolean(v))}
-            />
-            <Label htmlFor="email_digest" className="font-normal">Email digest summary</Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Basic profile details from your sign-in session.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Label>Name</Label>
-            <Input value={session?.user?.name || ""} readOnly className="bg-slate-50" />
-          </div>
-          <div>
-            <Label>Email</Label>
-            <Input value={session?.user?.email || ""} readOnly className="bg-slate-50" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="inline-flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-blue-600" />
-            Infrastructure Intake
-          </CardTitle>
-          <CardDescription>Bay and gantry operational controls for admin/controller roles.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!canManageInfra ? (
-            <p className="text-sm text-slate-500">You do not have permission to modify bay or gantry operations.</p>
-          ) : (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="inline-flex items-center gap-1">
-                    Select Bay
-                    <HelpTooltip description="What it is: Bay to update. Why it matters: Actions below apply to this selected bay." />
-                  </Label>
-                  <Select value={selectedBayId} onValueChange={setSelectedBayId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={baysLoading ? "Loading bays..." : "Pick a bay"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bays.map((bay: any) => (
-                        <SelectItem key={bay.id} value={bay.id}>
-                          {bay.gantry?.name} / {bay.uniqueCode}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="inline-flex items-center gap-1">
-                    Bay Action
-                    <HelpTooltip description="What it is: State transition for the selected bay. Why it matters: Controls availability for assignment." />
-                  </Label>
-                  <Select value={selectedAction} onValueChange={setSelectedAction}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="maintenance">Set Maintenance</SelectItem>
-                      <SelectItem value="end_maintenance">End Maintenance</SelectItem>
-                      <SelectItem value="set_ready_changeover">Mark Ready Changeover</SelectItem>
-                      <SelectItem value="lock">Lock Bay</SelectItem>
-                      <SelectItem value="unlock">Unlock Bay</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <TabsContent value="general" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Workspace</CardTitle>
+              <CardDescription>Defaults for how your dashboard opens and behaves.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="inline-flex items-center gap-1">
+                  Default Landing Page
+                  <HelpTooltip description="What it is: Page to open first after sign-in. Why it matters: Gets you to your most-used workspace faster." />
+                </Label>
+                <Select value={defaultRoute} onValueChange={setDefaultRoute}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="/dashboard">Dashboard</SelectItem>
+                    <SelectItem value="/bookings">Bookings</SelectItem>
+                    <SelectItem value="/schedule">Schedule</SelectItem>
+                    <SelectItem value="/reports">Reports</SelectItem>
+                    <SelectItem value="/notifications">Notifications</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={() => selectedBayId && bayActionMutation.mutate({ bayId: selectedBayId, action: selectedAction })}
-                  disabled={!selectedBayId || bayActionMutation.isPending}
-                  title="Apply selected action to the selected bay."
-                >
-                  {bayActionMutation.isPending ? "Applying..." : "Apply Bay Action"}
-                </Button>
-                <Button variant="outline" onClick={() => refetchBays()} title="Reload current bay and gantry state.">
-                  Refresh Bay Data
-                </Button>
-                <Button asChild variant="outline" title="Open yard console for detailed bay and arm controls.">
-                  <Link href="/controller/yard-console">Open Bay Console</Link>
-                </Button>
-                <Button asChild variant="outline" title="Open controller console for queue and gantry-linked decisions.">
-                  <Link href="/controller/console">Open Gantry Controls</Link>
-                </Button>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="sidebar_collapsed"
+                  checked={sidebarCollapsed}
+                  onCheckedChange={(v) => setSidebarCollapsed(Boolean(v))}
+                />
+                <Label htmlFor="sidebar_collapsed" className="font-normal">
+                  Start with collapsed sidebar
+                </Label>
               </div>
+            </CardContent>
+          </Card>
 
-              {selectedBay && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <p className="font-medium text-slate-800">{selectedBay.gantry?.name} / {selectedBay.uniqueCode}</p>
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                    <Badge variant="outline">Status: {selectedBay.status}</Badge>
-                    <Badge variant="outline">Changeover: {selectedBay.changeoverState}</Badge>
-                    {selectedBay.currentProduct?.name && <Badge variant="outline">Product: {selectedBay.currentProduct.name}</Badge>}
+          <Card>
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>Readability and information density preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="tooltips_enabled"
+                  checked={tooltipEnabled}
+                  onCheckedChange={(v) => setTooltipEnabled(Boolean(v))}
+                />
+                <Label htmlFor="tooltips_enabled" className="font-normal">
+                  Show help tooltips
+                </Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="compact_density"
+                  checked={compactDensity}
+                  onCheckedChange={(v) => setCompactDensity(Boolean(v))}
+                />
+                <Label htmlFor="compact_density" className="font-normal">
+                  Compact table density
+                </Label>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Date format</Label>
+                <Select value={dateFormat} onValueChange={setDateFormat}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DD-MMM-YYYY">DD-MMM-YYYY</SelectItem>
+                    <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                    <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                    <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="operations" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="inline-flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-blue-600" />
+                Infrastructure Intake
+              </CardTitle>
+              <CardDescription>Bay and gantry operational controls for admin/controller roles.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!canManageInfra ? (
+                <p className="text-sm text-slate-500">You do not have permission to modify bay or gantry operations.</p>
+              ) : (
+                <>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-sm font-medium text-slate-700">Sub-section: Bay Actions</p>
+                    <p className="text-xs text-slate-500">Select a bay and apply operational state changes.</p>
                   </div>
-                </div>
-              )}
 
-              <div className="space-y-2">
-                <p className="inline-flex items-center gap-1 text-sm font-medium">
-                  <Building2 className="h-4 w-4 text-slate-500" />
-                  Gantry Overview
-                  <HelpTooltip description="What it is: Bay counts grouped by gantry. Why it matters: Helps spot uneven capacity distribution." />
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {gantrySummary.map((g) => (
-                    <div key={g.name} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-                      <span className="font-medium text-slate-800">{g.name}</span>
-                      <span className="ml-2 text-slate-500">{g.count} bays</span>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="inline-flex items-center gap-1">
+                        Select Bay
+                        <HelpTooltip description="What it is: Bay to update. Why it matters: Actions below apply to this selected bay." />
+                      </Label>
+                      <Select value={selectedBayId} onValueChange={setSelectedBayId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={baysLoading ? "Loading bays..." : "Pick a bay"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bays.map((bay: any) => (
+                            <SelectItem key={bay.id} value={bay.id}>
+                              {bay.gantry?.name} / {bay.uniqueCode}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                  {gantrySummary.length === 0 && (
-                    <p className="text-sm text-slate-500">No gantry data found for your current scope.</p>
+
+                    <div className="space-y-1.5">
+                      <Label className="inline-flex items-center gap-1">
+                        Bay Action
+                        <HelpTooltip description="What it is: State transition for the selected bay. Why it matters: Controls availability for assignment." />
+                      </Label>
+                      <Select value={selectedAction} onValueChange={setSelectedAction}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="maintenance">Set Maintenance</SelectItem>
+                          <SelectItem value="end_maintenance">End Maintenance</SelectItem>
+                          <SelectItem value="set_ready_changeover">Mark Ready Changeover</SelectItem>
+                          <SelectItem value="lock">Lock Bay</SelectItem>
+                          <SelectItem value="unlock">Unlock Bay</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      onClick={() => selectedBayId && bayActionMutation.mutate({ bayId: selectedBayId, action: selectedAction })}
+                      disabled={!selectedBayId || bayActionMutation.isPending}
+                      title="Apply selected action to the selected bay."
+                    >
+                      {bayActionMutation.isPending ? "Applying..." : "Apply Bay Action"}
+                    </Button>
+                    <Button variant="outline" onClick={() => refetchBays()} title="Reload current bay and gantry state.">
+                      Refresh Bay Data
+                    </Button>
+                    <Button asChild variant="outline" title="Open yard console for detailed bay and arm controls.">
+                      <Link href="/controller/yard-console">Open Bay Console</Link>
+                    </Button>
+                    <Button asChild variant="outline" title="Open controller console for queue and gantry-linked decisions.">
+                      <Link href="/controller/console">Open Gantry Controls</Link>
+                    </Button>
+                  </div>
+
+                  {selectedBay && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                      <p className="font-medium text-slate-800">{selectedBay.gantry?.name} / {selectedBay.uniqueCode}</p>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                        <Badge variant="outline">Status: {selectedBay.status}</Badge>
+                        <Badge variant="outline">Changeover: {selectedBay.changeoverState}</Badge>
+                        {selectedBay.currentProduct?.name && <Badge variant="outline">Product: {selectedBay.currentProduct.name}</Badge>}
+                      </div>
+                    </div>
                   )}
-                </div>
+
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <p className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                      <Building2 className="h-4 w-4 text-slate-500" />
+                      Sub-section: Gantry Overview
+                      <HelpTooltip description="What it is: Bay counts grouped by gantry. Why it matters: Helps spot uneven capacity distribution." />
+                    </p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {gantrySummary.map((g) => (
+                        <div key={g.name} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+                          <span className="font-medium text-slate-800">{g.name}</span>
+                          <span className="ml-2 text-slate-500">{g.count} bays</span>
+                        </div>
+                      ))}
+                      {gantrySummary.length === 0 && (
+                        <p className="text-sm text-slate-500">No gantry data found for your current scope.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>Control alert behavior in this browser.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="desktop_alerts"
+                  checked={desktopAlerts}
+                  onCheckedChange={(v) => setDesktopAlerts(Boolean(v))}
+                />
+                <Label htmlFor="desktop_alerts" className="font-normal">Desktop pop-up alerts</Label>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="alert_sound"
+                  checked={alertSound}
+                  onCheckedChange={(v) => setAlertSound(Boolean(v))}
+                />
+                <Label htmlFor="alert_sound" className="font-normal">Play notification sound</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="email_digest"
+                  checked={emailDigest}
+                  onCheckedChange={(v) => setEmailDigest(Boolean(v))}
+                />
+                <Label htmlFor="email_digest" className="font-normal">Email digest summary</Label>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="account" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account</CardTitle>
+              <CardDescription>Basic profile details from your sign-in session.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Name</Label>
+                <Input value={session?.user?.name || ""} readOnly className="bg-slate-50" />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input value={session?.user?.email || ""} readOnly className="bg-slate-50" />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
