@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { statusColor, formatDate } from "@/lib/utils"
 import { Plus, Search, X, Package, Clock, Truck, CheckCircle, XCircle, CalendarCheck } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 const ALL_STATUSES = [
   { value: "DRAFT", label: "Draft" },
@@ -105,10 +106,13 @@ export default function BookingsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold">Bookings</h1>
+        <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+          Bookings
+          <HelpTooltip description="What it is: Full booking list. Why it matters: Track progress from request to completion." />
+        </h1>
         {canCreate && (
           <Link href="/bookings/new">
-            <Button><Plus className="h-4 w-4 mr-2" /> New Booking</Button>
+            <Button title="Create a new dispatch booking request."><Plus className="h-4 w-4 mr-2" /> New Booking</Button>
           </Link>
         )}
       </div>
@@ -136,13 +140,14 @@ export default function BookingsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search booking number..."
+                title="Search by booking number to quickly find one record."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1) }}
                 className="pl-9"
               />
             </div>
             <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-              <SelectTrigger>
+              <SelectTrigger title="Filter bookings by lifecycle stage.">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -154,7 +159,7 @@ export default function BookingsPage() {
             </Select>
             {isAdmin && (
               <Select value={clientId} onValueChange={(v) => { setClientId(v); setPage(1) }}>
-                <SelectTrigger>
+                <SelectTrigger title="Filter to one client account.">
                   <SelectValue placeholder="Filter by client" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,11 +170,11 @@ export default function BookingsPage() {
                 </SelectContent>
               </Select>
             )}
-            <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} placeholder="From date" />
+            <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1) }} placeholder="From date" title="Start date for results." />
             <div className="flex gap-2">
-              <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} placeholder="To date" className="flex-1" />
+              <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1) }} placeholder="To date" className="flex-1" title="End date for results." />
               {hasFilters && (
-                <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear filters">
+                <Button variant="ghost" size="icon" onClick={clearFilters} title="Clear all active filters and reset the list.">
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -191,14 +196,14 @@ export default function BookingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Booking No</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Slot</TableHead>
-                      <TableHead>Transporter</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Booking No <HelpTooltip description="What it is: Unique booking code. Why it matters: Fast way to find one booking." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Client <HelpTooltip description="What it is: Customer account. Why it matters: Compare bookings by client." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Product <HelpTooltip description="What it is: Product requested. Why it matters: Helps plan resource load by product." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Qty <HelpTooltip description="What it is: Requested quantity. Why it matters: Higher quantity can affect slot time." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Date <HelpTooltip description="What it is: Booking date. Why it matters: Helps track daily demand." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Slot <HelpTooltip description="What it is: Planned time window. Why it matters: Missing slot means scheduling is pending." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Transporter <HelpTooltip description="What it is: Assigned carrier. Why it matters: Shows who will move the load." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Status <HelpTooltip description="What it is: Current booking stage. Why it matters: Tells what action is next." /></span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -212,9 +217,12 @@ export default function BookingsPage() {
                         <TableCell>{b.timeSlot ? `${b.timeSlot.startTime}-${b.timeSlot.endTime}` : "TBD"}</TableCell>
                         <TableCell>{b.transporter?.name || "-"}</TableCell>
                         <TableCell>
-                          <Badge className={statusColor(b.status)}>
-                            {b.status.replace(/_/g, " ")}
-                          </Badge>
+                          <span className="inline-flex items-center gap-1">
+                            <Badge className={statusColor(b.status)}>
+                              {b.status.replace(/_/g, " ")}
+                            </Badge>
+                            <HelpTooltip description="What it is: Booking progress label. Why it matters: Use non-final states to prioritize follow-up." />
+                          </span>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -247,8 +255,8 @@ export default function BookingsPage() {
                     Showing {((page - 1) * 15) + 1}-{Math.min(page * 15, data.total)} of {data.total}
                   </p>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-                    <Button variant="outline" size="sm" disabled={page * 15 >= data.total} onClick={() => setPage(page + 1)}>Next</Button>
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} title="Go to the previous page of bookings.">Previous</Button>
+                    <Button variant="outline" size="sm" disabled={page * 15 >= data.total} onClick={() => setPage(page + 1)} title="Go to the next page of bookings.">Next</Button>
                   </div>
                 </div>
               )}

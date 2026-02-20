@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 import {
   ShieldCheck, CheckCircle, XCircle, Clock, FileSearch, ExternalLink,
   Filter, AlertTriangle, FileText, RefreshCw,
@@ -202,7 +203,7 @@ export default function AdminDocumentsReviewPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading} title="Refresh document queue and statuses.">
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
@@ -214,7 +215,7 @@ export default function AdminDocumentsReviewPage() {
           <CardContent className="pt-4 pb-3 px-4 cursor-pointer" onClick={() => setStatusFilter("PENDING")}>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm text-muted-foreground">Pending Review</span>
+              <span className="text-sm text-muted-foreground inline-flex items-center gap-1">Pending Review <HelpTooltip description="What it is: Documents waiting for manual decision. Why it matters: These are next in your queue." /></span>
             </div>
             <p className="text-2xl font-bold mt-1 text-yellow-600">{pendingCount}</p>
           </CardContent>
@@ -223,7 +224,7 @@ export default function AdminDocumentsReviewPage() {
           <CardContent className="pt-4 pb-3 px-4 cursor-pointer" onClick={() => setStatusFilter("VERIFIED")}>
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-sm text-muted-foreground">Verified</span>
+              <span className="text-sm text-muted-foreground inline-flex items-center gap-1">Verified <HelpTooltip description="What it is: Approved documents. Why it matters: Ready for downstream processing." /></span>
             </div>
             <p className="text-2xl font-bold mt-1 text-green-600">{verifiedCount}</p>
           </CardContent>
@@ -232,7 +233,7 @@ export default function AdminDocumentsReviewPage() {
           <CardContent className="pt-4 pb-3 px-4 cursor-pointer" onClick={() => setStatusFilter("REJECTED")}>
             <div className="flex items-center gap-2">
               <XCircle className="h-4 w-4 text-red-600" />
-              <span className="text-sm text-muted-foreground">Rejected</span>
+              <span className="text-sm text-muted-foreground inline-flex items-center gap-1">Rejected <HelpTooltip description="What it is: Failed review documents. Why it matters: Uploader must correct and resubmit." /></span>
             </div>
             <p className="text-2xl font-bold mt-1 text-red-600">{rejectedCount}</p>
           </CardContent>
@@ -244,11 +245,11 @@ export default function AdminDocumentsReviewPage() {
         <CardContent className="pt-4">
           <div className="flex items-center gap-2 mb-3">
             <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filters</span>
+            <span className="text-sm font-medium inline-flex items-center gap-1">Filters <HelpTooltip description="What it is: Queue narrowing controls. Why it matters: Focus review on priority document sets." /></span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger title="Filter queue by verification state.">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +259,7 @@ export default function AdminDocumentsReviewPage() {
               </SelectContent>
             </Select>
             <Select value={docTypeFilter} onValueChange={setDocTypeFilter}>
-              <SelectTrigger>
+              <SelectTrigger title="Filter queue by document category.">
                 <SelectValue placeholder="Filter by document type" />
               </SelectTrigger>
               <SelectContent>
@@ -293,12 +294,12 @@ export default function AdminDocumentsReviewPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Doc Type</TableHead>
-                    <TableHead>Uploaded By</TableHead>
-                    <TableHead>File</TableHead>
-                    <TableHead>Auto Check</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Uploaded At</TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">Doc Type <HelpTooltip description="What it is: Document category. Why it matters: Review rules differ by type." /></span></TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">Uploaded By <HelpTooltip description="What it is: Linked record source. Why it matters: Helps identify who should fix issues." /></span></TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">File <HelpTooltip description="What it is: Uploaded file link. Why it matters: Open file to verify readability and validity." /></span></TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">Auto Check <HelpTooltip description="What it is: AI validation result. Why it matters: Use as guidance, then confirm manually." /></span></TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">Status <HelpTooltip description="What it is: Review state. Why it matters: Pending needs action now." /></span></TableHead>
+                    <TableHead><span className="inline-flex items-center gap-1">Uploaded At <HelpTooltip description="What it is: Submission time. Why it matters: Older pending docs may need priority." /></span></TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -385,6 +386,7 @@ export default function AdminDocumentsReviewPage() {
                               className="h-8 bg-green-600 hover:bg-green-700 text-white"
                               onClick={() => verifyDoc.mutate(doc.id)}
                               disabled={verifyDoc.isPending}
+                              title="Approve this document after manual review."
                             >
                               <CheckCircle className="h-3.5 w-3.5 mr-1" />
                               Verify
@@ -394,6 +396,7 @@ export default function AdminDocumentsReviewPage() {
                               variant="destructive"
                               className="h-8"
                               onClick={() => setRejectDialog({ docId: doc.id, docName: getDocTypeName(doc) })}
+                              title="Reject this document and provide correction reason."
                             >
                               <XCircle className="h-3.5 w-3.5 mr-1" />
                               Reject
@@ -437,7 +440,7 @@ export default function AdminDocumentsReviewPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Rejection Reason *</Label>
+              <Label className="inline-flex items-center gap-1">Rejection Reason * <HelpTooltip description="What it is: Why this file failed review. Why it matters: Clear reason helps faster correction." /></Label>
               <Textarea
                 placeholder="e.g., Document is blurry, incorrect document type, expired certificate..."
                 value={rejectionReason}

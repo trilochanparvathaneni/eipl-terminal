@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 export default function NewBookingPage() {
   const { data: session } = useSession()
@@ -119,14 +120,17 @@ export default function NewBookingPage() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Create New Booking</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5">
+            Create New Booking
+            <HelpTooltip description="What it is: Form to request a dispatch booking. Why it matters: Correct details prevent later delays." />
+          </CardTitle>
           <CardDescription>Fill in the details to create a dispatch booking</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {isAdmin && (
               <div className="space-y-2">
-                <Label>Client *</Label>
+                <Label className="inline-flex items-center gap-1">Client * <HelpTooltip description="What it is: Account requesting the load. Why it matters: Sets ownership and visibility." /></Label>
                 <Select value={clientId} onValueChange={setClientId}>
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
@@ -139,7 +143,7 @@ export default function NewBookingPage() {
             )}
 
             <div className="space-y-2">
-              <Label>Product *</Label>
+              <Label className="inline-flex items-center gap-1">Product * <HelpTooltip description="What it is: Material to be dispatched. Why it matters: Drives slot and safety checks." /></Label>
               <Select value={productId} onValueChange={setProductId}>
                 <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                 <SelectContent>
@@ -153,7 +157,7 @@ export default function NewBookingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Quantity *</Label>
+              <Label className="inline-flex items-center gap-1">Quantity * <HelpTooltip description="What it is: Requested amount. Why it matters: Affects bay time and planning." /></Label>
               <Input
                 type="number"
                 step="0.01"
@@ -166,7 +170,7 @@ export default function NewBookingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Date *</Label>
+              <Label className="inline-flex items-center gap-1">Date * <HelpTooltip description="What it is: Requested dispatch day. Why it matters: Loads available slots for that day." /></Label>
               <Input
                 type="date"
                 value={date}
@@ -185,11 +189,12 @@ export default function NewBookingPage() {
               <Label htmlFor="bulk" className="text-sm font-normal">
                 Bulk booking (slots allocated by operations)
               </Label>
+              <HelpTooltip description="What it is: Ops assigns slot later. Why it matters: Use for flexible or large-volume requests." />
             </div>
 
             {!isBulk && date && (
               <div className="space-y-2">
-                <Label>Time Slot</Label>
+                <Label className="inline-flex items-center gap-1">Time Slot <HelpTooltip description="What it is: Preferred loading window. Why it matters: Helps reduce waiting time at gate." /></Label>
                 <Select value={timeSlotId} onValueChange={setTimeSlotId}>
                   <SelectTrigger><SelectValue placeholder="Select preferred slot" /></SelectTrigger>
                   <SelectContent>
@@ -204,7 +209,7 @@ export default function NewBookingPage() {
             )}
 
             <div className="space-y-2">
-              <Label>Transporter</Label>
+              <Label className="inline-flex items-center gap-1">Transporter <HelpTooltip description="What it is: Carrier moving the truck. Why it matters: Assigns operational responsibility." /></Label>
               <Select value={transporterId} onValueChange={setTransporterId}>
                 <SelectTrigger><SelectValue placeholder="Select transporter" /></SelectTrigger>
                 <SelectContent>
@@ -216,7 +221,7 @@ export default function NewBookingPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Additional Requests</Label>
+              <Label className="inline-flex items-center gap-1">Additional Requests <HelpTooltip description="What it is: Special notes for operations. Why it matters: Captures non-standard handling needs." /></Label>
               <Textarea
                 value={additionalRequests}
                 onChange={(e) => setAdditionalRequests(e.target.value)}
@@ -225,10 +230,10 @@ export default function NewBookingPage() {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" disabled={mutation.isPending}>
+              <Button type="submit" disabled={mutation.isPending} title="Submit this booking request for processing.">
                 {mutation.isPending ? "Submitting..." : "Submit Booking"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => router.back()}>
+              <Button type="button" variant="outline" onClick={() => router.back()} title="Return without saving this form.">
                 Cancel
               </Button>
             </div>

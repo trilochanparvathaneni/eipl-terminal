@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/components/ui/use-toast"
 import { statusColor, formatDateTime } from "@/lib/utils"
 import { ShieldAlert, ClipboardCheck, AlertTriangle, Plus } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 export default function HSEPage() {
   const { data: session } = useSession()
@@ -140,19 +141,22 @@ export default function HSEPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">HSE Management</h1>
+        <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+          HSE Management
+          <HelpTooltip description="What it is: Safety and compliance workspace. Why it matters: Helps prevent incidents and enforce controls." />
+        </h1>
       </div>
 
       <Tabs defaultValue="checklists">
         <TabsList>
-          <TabsTrigger value="checklists">Safety Checklists</TabsTrigger>
-          <TabsTrigger value="stopwork">Stop Work Orders</TabsTrigger>
-          <TabsTrigger value="incidents">Incidents</TabsTrigger>
+          <TabsTrigger value="checklists"><span className="inline-flex items-center gap-1">Safety Checklists <HelpTooltip description="What it is: Pre-operation safety checks. Why it matters: Confirms readiness before work starts." /></span></TabsTrigger>
+          <TabsTrigger value="stopwork"><span className="inline-flex items-center gap-1">Stop Work Orders <HelpTooltip description="What it is: Emergency work holds. Why it matters: Prevents unsafe continuation." /></span></TabsTrigger>
+          <TabsTrigger value="incidents"><span className="inline-flex items-center gap-1">Incidents <HelpTooltip description="What it is: Logged safety events. Why it matters: Tracks risk and closure actions." /></span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklists" className="space-y-3">
           <div className="flex justify-end">
-            <Button onClick={() => setChecklistDialog(true)}><Plus className="h-4 w-4 mr-2" /> New Checklist</Button>
+            <Button onClick={() => setChecklistDialog(true)} title="Create a new safety checklist for a booking."><Plus className="h-4 w-4 mr-2" /> New Checklist</Button>
           </div>
           {checklists?.map((c: any) => (
             <Card key={c.id}>
@@ -161,7 +165,10 @@ export default function HSEPage() {
                   <p className="text-sm font-medium">Booking: {c.booking?.bookingNo || c.bookingId}</p>
                   <p className="text-xs text-muted-foreground">By {c.createdBy?.name} on {formatDateTime(c.createdAt)}</p>
                 </div>
-                <Badge className={statusColor(c.status)}>{c.status}</Badge>
+                <span className="inline-flex items-center gap-1">
+                  <Badge className={statusColor(c.status)}>{c.status}</Badge>
+                  <HelpTooltip description="What it is: Checklist result. Why it matters: FAILED requires corrective action before proceeding." />
+                </span>
               </CardContent>
             </Card>
           ))}
@@ -172,7 +179,7 @@ export default function HSEPage() {
 
         <TabsContent value="stopwork" className="space-y-3">
           <div className="flex justify-end">
-            <Button variant="destructive" onClick={() => setStopWorkDialog(true)}><ShieldAlert className="h-4 w-4 mr-2" /> Issue Stop Work</Button>
+            <Button variant="destructive" onClick={() => setStopWorkDialog(true)} title="Issue a safety hold to stop operations on a booking."><ShieldAlert className="h-4 w-4 mr-2" /> Issue Stop Work</Button>
           </div>
           {stopWorks?.map((sw: any) => (
             <Card key={sw.id} className={sw.active ? "border-destructive" : ""}>
@@ -182,9 +189,12 @@ export default function HSEPage() {
                   <p className="text-xs text-muted-foreground">Booking: {sw.booking?.bookingNo || sw.bookingId} | By {sw.issuedBy?.name} | {formatDateTime(sw.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={sw.active ? "bg-red-200 text-red-800" : "bg-green-100 text-green-700"}>
-                    {sw.active ? "ACTIVE" : "RESOLVED"}
-                  </Badge>
+                  <span className="inline-flex items-center gap-1">
+                    <Badge className={sw.active ? "bg-red-200 text-red-800" : "bg-green-100 text-green-700"}>
+                      {sw.active ? "ACTIVE" : "RESOLVED"}
+                    </Badge>
+                    <HelpTooltip description="What it is: Stop-work status. Why it matters: ACTIVE blocks work until resolved." />
+                  </span>
                   {sw.active && (
                     <Button size="sm" variant="outline" onClick={() => resolveStopWork.mutate(sw.id)}>Resolve</Button>
                   )}
@@ -199,7 +209,7 @@ export default function HSEPage() {
 
         <TabsContent value="incidents" className="space-y-3">
           <div className="flex justify-end">
-            <Button onClick={() => setIncidentDialog(true)}><AlertTriangle className="h-4 w-4 mr-2" /> Report Incident</Button>
+            <Button onClick={() => setIncidentDialog(true)} title="Log a safety incident with severity and description."><AlertTriangle className="h-4 w-4 mr-2" /> Report Incident</Button>
           </div>
           {incidents?.map((inc: any) => (
             <Card key={inc.id}>
@@ -209,8 +219,14 @@ export default function HSEPage() {
                   <p className="text-xs text-muted-foreground">By {inc.reportedBy?.name} | {formatDateTime(inc.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={statusColor(inc.severity)}>{inc.severity}</Badge>
-                  <Badge className={statusColor(inc.status)}>{inc.status}</Badge>
+                  <span className="inline-flex items-center gap-1">
+                    <Badge className={statusColor(inc.severity)}>{inc.severity}</Badge>
+                    <HelpTooltip description="What it is: Incident impact level. Why it matters: High severity should be handled first." />
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Badge className={statusColor(inc.status)}>{inc.status}</Badge>
+                    <HelpTooltip description="What it is: Incident workflow state. Why it matters: OPEN items need follow-up and closure." />
+                  </span>
                   {inc.status === "OPEN" && (
                     <Button size="sm" variant="outline" onClick={() => closeIncident.mutate(inc.id)}>Close</Button>
                   )}
@@ -230,7 +246,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>New Safety Checklist</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Booking</Label>
+              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description="What it is: Booking being inspected. Why it matters: Links checklist to the right trip." /></Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={bookingId} onChange={(e) => setBookingId(e.target.value)} required>
                 <option value="">Select booking</option>
                 {bookings?.bookings?.map((b: any) => (
@@ -239,14 +255,14 @@ export default function HSEPage() {
               </select>
             </div>
             <div className="space-y-3">
-              <p className="text-sm font-medium">Checklist Items:</p>
+              <p className="text-sm font-medium inline-flex items-center gap-1">Checklist Items: <HelpTooltip description="What it is: Required safety checks. Why it matters: Missing checks can fail compliance." /></p>
               <div className="flex items-center gap-2"><Checkbox checked={ppe} onCheckedChange={(c) => setPpe(c as boolean)} /><Label className="font-normal">PPE Verified</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={earthing} onCheckedChange={(c) => setEarthing(c as boolean)} /><Label className="font-normal">Earthing Connected</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={leakCheck} onCheckedChange={(c) => setLeakCheck(c as boolean)} /><Label className="font-normal">Leak Check Passed</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={fireSystem} onCheckedChange={(c) => setFireSystem(c as boolean)} /><Label className="font-normal">Fire System Ready</Label></div>
             </div>
             <div className="space-y-2">
-              <Label>Additional Notes</Label>
+              <Label className="inline-flex items-center gap-1">Additional Notes <HelpTooltip description="What it is: Extra context for audit trail. Why it matters: Helps explain pass/fail decisions." /></Label>
               <Textarea value={checklistNotes} onChange={(e) => setChecklistNotes(e.target.value)} />
             </div>
           </div>
@@ -272,7 +288,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>Issue Stop Work Order</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Booking</Label>
+              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description="What it is: Booking to be halted. Why it matters: Ensures stop-work applies to correct operation." /></Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={bookingId} onChange={(e) => setBookingId(e.target.value)} required>
                 <option value="">Select booking</option>
                 {bookings?.bookings?.map((b: any) => (
@@ -281,7 +297,7 @@ export default function HSEPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Reason *</Label>
+              <Label className="inline-flex items-center gap-1">Reason * <HelpTooltip description="What it is: Safety reason for hold. Why it matters: Required for compliance and corrective action." /></Label>
               <Textarea value={stopWorkReason} onChange={(e) => setStopWorkReason(e.target.value)} placeholder="Describe the safety concern..." />
             </div>
           </div>
@@ -304,7 +320,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>Report Incident</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Severity</Label>
+              <Label className="inline-flex items-center gap-1">Severity <HelpTooltip description="What it is: Incident impact level. Why it matters: Guides response priority." /></Label>
               <Select value={incidentSeverity} onValueChange={setIncidentSeverity}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -315,7 +331,7 @@ export default function HSEPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Description *</Label>
+              <Label className="inline-flex items-center gap-1">Description * <HelpTooltip description="What it is: Incident details. Why it matters: Enables proper investigation and closure." /></Label>
               <Textarea value={incidentDesc} onChange={(e) => setIncidentDesc(e.target.value)} placeholder="Describe the incident..." />
             </div>
           </div>

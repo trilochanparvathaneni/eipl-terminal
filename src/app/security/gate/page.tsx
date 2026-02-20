@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/components/ui/use-toast"
 import { statusColor, formatDateTime } from "@/lib/utils"
 import { QrCode, LogIn, LogOut, Truck, ShieldAlert, Search } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 export default function SecurityGatePage() {
   const { data: session } = useSession()
@@ -137,23 +138,27 @@ export default function SecurityGatePage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Gate Operations</h1>
+      <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+        Gate Operations
+        <HelpTooltip description="What it is: Entry and exit control for trucks. Why it matters: Accurate gate updates keep trip status reliable." />
+      </h1>
 
       {/* QR Scanner */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2"><QrCode className="h-5 w-5" /> QR Scanner</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><QrCode className="h-5 w-5" /> QR Scanner <HelpTooltip description="What it is: QR token reader. Why it matters: Fast way to validate truck identity and stage." /></CardTitle>
           <CardDescription>Scan or enter QR token manually</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
             <Input
               placeholder="Paste or scan QR token..."
+              title="Paste the truck QR token or scan from a handheld device."
               value={qrInput}
               onChange={(e) => setQrInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleScan()}
             />
-            <Button onClick={handleScan} disabled={scanMutation.isPending}>
+            <Button onClick={handleScan} disabled={scanMutation.isPending} title="Validate token and fetch truck trip details.">
               <Search className="h-4 w-4 mr-2" /> Scan
             </Button>
           </div>
@@ -198,9 +203,9 @@ export default function SecurityGatePage() {
       {/* Today's arrivals */}
       <Tabs defaultValue="awaiting">
         <TabsList>
-          <TabsTrigger value="awaiting">Awaiting ({awaitingEntry.length})</TabsTrigger>
-          <TabsTrigger value="inside">In Terminal ({inTerminal.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
+          <TabsTrigger value="awaiting"><span className="inline-flex items-center gap-1">Awaiting ({awaitingEntry.length}) <HelpTooltip description="What it is: Trucks with valid QR waiting to enter. Why it matters: Process these to keep gate flow moving." /></span></TabsTrigger>
+          <TabsTrigger value="inside"><span className="inline-flex items-center gap-1">In Terminal ({inTerminal.length}) <HelpTooltip description="What it is: Trucks currently inside terminal. Why it matters: Use this list for check-out readiness." /></span></TabsTrigger>
+          <TabsTrigger value="completed"><span className="inline-flex items-center gap-1">Completed ({completed.length}) <HelpTooltip description="What it is: Trucks finished and exited. Why it matters: Historical view for audit and throughput." /></span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="awaiting">
@@ -235,7 +240,7 @@ export default function SecurityGatePage() {
               <p>Product: {selectedTrip?.booking?.product?.name}</p>
             </div>
             <div className="space-y-2">
-              <Label>Tare Weight (optional)</Label>
+              <Label className="inline-flex items-center gap-1">Tare Weight (optional) <HelpTooltip description="What it is: Empty truck weight. Why it matters: Helps compute loaded net quantity accurately." /></Label>
               <Input type="number" value={weighmentTare} onChange={(e) => setWeighmentTare(e.target.value)} placeholder="Enter tare weight" />
             </div>
           </div>
@@ -256,11 +261,11 @@ export default function SecurityGatePage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Gross Weight</Label>
+              <Label className="inline-flex items-center gap-1">Gross Weight <HelpTooltip description="What it is: Loaded truck weight. Why it matters: Used for quantity reconciliation." /></Label>
               <Input type="number" value={weighmentGross} onChange={(e) => setWeighmentGross(e.target.value)} placeholder="Enter gross weight" />
             </div>
             <div className="space-y-2">
-              <Label>Net Quantity</Label>
+              <Label className="inline-flex items-center gap-1">Net Quantity <HelpTooltip description="What it is: Product actually moved. Why it matters: Final dispatch quantity for records and billing." /></Label>
               <Input type="number" value={netQuantity} onChange={(e) => setNetQuantity(e.target.value)} placeholder="Enter net quantity" />
             </div>
           </div>
@@ -306,21 +311,28 @@ function TripList({ trips, action, onAction }: { trips: any[]; action?: string; 
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                <span className="inline-flex items-center gap-1">
+                  <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                  <HelpTooltip description="What it is: Trip stage at gate. Why it matters: Decides whether check-in or check-out is allowed." />
+                </span>
                 {trip.booking?.stopWorkOrders?.length > 0 && (
-                  <Badge className="bg-red-200 text-red-800">STOP WORK</Badge>
+                  <span className="inline-flex items-center gap-1">
+                    <Badge className="bg-red-200 text-red-800">STOP WORK</Badge>
+                    <HelpTooltip description="What it is: Safety hold. Why it matters: Truck cannot proceed until resolved." />
+                  </span>
                 )}
                 {action === "checkin" && onAction && (
                   <Button
                     size="sm"
                     onClick={() => onAction(trip)}
                     disabled={trip.booking?.stopWorkOrders?.length > 0}
+                    title="Check truck into terminal entry workflow."
                   >
                     <LogIn className="h-3 w-3 mr-1" /> In
                   </Button>
                 )}
                 {action === "checkout" && onAction && (
-                  <Button size="sm" variant="secondary" onClick={() => onAction(trip)}>
+                  <Button size="sm" variant="secondary" onClick={() => onAction(trip)} title="Check truck out after loading and clearance.">
                     <LogOut className="h-3 w-3 mr-1" /> Out
                   </Button>
                 )}

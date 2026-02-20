@@ -19,6 +19,7 @@ import { statusColor, formatDate, formatDateTime } from "@/lib/utils"
 import { StatusTimeline } from "@/components/bookings/StatusTimeline"
 import { ConfirmDialog } from "@/components/bookings/ConfirmDialog"
 import { ScheduleDialog } from "@/components/bookings/ScheduleDialog"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 import {
   ArrowLeft, Truck, QrCode, MapPin, Clock, ShieldAlert,
   CheckCircle, Pencil, Ban, ThumbsUp, ThumbsDown, CalendarCheck,
@@ -197,15 +198,18 @@ export default function BookingDetailPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{booking.bookingNo}</h1>
-            <Badge className={statusColor(booking.status)}>{booking.status.replace(/_/g, " ")}</Badge>
+            <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">{booking.bookingNo}<HelpTooltip description="What it is: Unique booking reference. Why it matters: Primary identifier across all workflows." /></h1>
+            <span className="inline-flex items-center gap-1">
+              <Badge className={statusColor(booking.status)}>{booking.status.replace(/_/g, " ")}</Badge>
+              <HelpTooltip description="What it is: Current booking stage. Why it matters: Determines what actions are available." />
+            </span>
             {booking.isBulk && <Badge variant="secondary">Bulk</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">Created {formatDateTime(booking.createdAt)} by {booking.createdBy?.name}</p>
         </div>
         <div className="flex gap-2">
           {canEdit && (
-            <Button variant="outline" size="sm" onClick={openEditDialog}>
+            <Button variant="outline" size="sm" onClick={openEditDialog} title="Edit eligible booking fields like quantity or transporter.">
               <Pencil className="h-4 w-4 mr-1" /> Edit
             </Button>
           )}
@@ -235,10 +239,10 @@ export default function BookingDetailPage() {
       {/* Tabbed Layout */}
       <Tabs defaultValue="details">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="trucks">Truck Trips ({booking.truckTrips?.length || 0})</TabsTrigger>
-          <TabsTrigger value="safety">Safety</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="details"><span className="inline-flex items-center gap-1">Details <HelpTooltip description="What it is: Core booking fields. Why it matters: Confirms request accuracy." /></span></TabsTrigger>
+          <TabsTrigger value="trucks"><span className="inline-flex items-center gap-1">Truck Trips ({booking.truckTrips?.length || 0}) <HelpTooltip description="What it is: Linked truck executions. Why it matters: Track physical movement progress." /></span></TabsTrigger>
+          <TabsTrigger value="safety"><span className="inline-flex items-center gap-1">Safety <HelpTooltip description="What it is: Safety checks and stop-work data. Why it matters: Ensures compliant operations." /></span></TabsTrigger>
+          <TabsTrigger value="timeline"><span className="inline-flex items-center gap-1">Timeline <HelpTooltip description="What it is: Event history for this booking. Why it matters: Helps audit sequence of actions." /></span></TabsTrigger>
         </TabsList>
 
         {/* Details Tab */}
@@ -302,7 +306,7 @@ export default function BookingDetailPage() {
               <CardTitle className="text-lg">Truck Trips</CardTitle>
               {canAddTruck && (
                 <Link href={`/transporter/trips?bookingId=${booking.id}`}>
-                  <Button size="sm"><Truck className="h-4 w-4 mr-2" /> Add Truck</Button>
+                  <Button size="sm" title="Create a truck trip tied to this booking."><Truck className="h-4 w-4 mr-2" /> Add Truck</Button>
                 </Link>
               )}
             </CardHeader>
@@ -320,10 +324,13 @@ export default function BookingDetailPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                          <span className="inline-flex items-center gap-1">
+                            <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                            <HelpTooltip description="What it is: Trip stage for this truck. Why it matters: Indicates readiness for next gate action." />
+                          </span>
                           {trip.qrToken && (
                             <Link href={`/transporter/trips/${trip.id}/qr`}>
-                              <Button variant="outline" size="sm"><QrCode className="h-3 w-3 mr-1" /> QR</Button>
+                              <Button variant="outline" size="sm" title="Open truck QR used for gate scan."><QrCode className="h-3 w-3 mr-1" /> QR</Button>
                             </Link>
                           )}
                         </div>

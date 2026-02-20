@@ -65,7 +65,7 @@ export default async function FormsPage() {
                     <form.icon className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{form.title}</CardTitle>
+                    <CardTitle className="text-lg" title={`Open ${form.title} form. This helps collect required onboarding/compliance details.`}>{form.title}</CardTitle>
                     <CardDescription>{form.description}</CardDescription>
                   </div>
                 </div>

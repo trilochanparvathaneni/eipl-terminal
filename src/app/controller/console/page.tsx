@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 import {
   Radio, Truck, MapPin, Clock, AlertTriangle, CheckCircle, Lock,
   Wrench, RotateCcw, Zap, ArrowRight, Shield, Play, Pause, XCircle,
@@ -217,7 +218,10 @@ export default function ControllerConsolePage() {
         <div className="flex items-center gap-3">
           <Radio className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Traffic Controller Console</h1>
+            <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+              Traffic Controller Console
+              <HelpTooltip description="What it is: Live bay and queue decision screen. Why it matters: Helps route trucks faster with fewer conflicts." />
+            </h1>
             <p className="text-sm text-muted-foreground">AI-Driven Bay Allocation &amp; Queue Management</p>
           </div>
         </div>
@@ -225,7 +229,7 @@ export default function ControllerConsolePage() {
           {plan?.computedAt && (
             <span className="text-xs text-muted-foreground">Plan: {new Date(plan.computedAt).toLocaleTimeString()}</span>
           )}
-          <Button size="sm" variant="outline" onClick={() => refetchPlan()} disabled={planLoading}>
+          <Button size="sm" variant="outline" onClick={() => refetchPlan()} disabled={planLoading} title="Refresh AI suggestions using latest queue and bay state.">
             <RotateCcw className={`h-3.5 w-3.5 mr-1 ${planLoading ? "animate-spin" : ""}`} /> Recompute
           </Button>
         </div>
@@ -234,7 +238,10 @@ export default function ControllerConsolePage() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* ── LEFT: Bay Grid ──────────────────────────────────────────────── */}
         <div className="xl:col-span-4 space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Bay Grid</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1.5">
+            Bay Grid
+            <HelpTooltip description="What it is: Current bay conditions. Why it matters: Choose safe, available bays for incoming trucks." />
+          </h2>
           {Object.entries(gantryGroups).map(([gantryName, gantryBays]) => (
             <Card key={gantryName} className="shadow-sm">
               <CardHeader className="py-2 px-3">
@@ -257,15 +264,21 @@ export default function ControllerConsolePage() {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-xs">{bay.uniqueCode}</span>
-                          <Badge variant="outline" className={`text-[9px] px-1 py-0 ${style.text}`}>{bay.status}</Badge>
+                          <span className="inline-flex items-center gap-1">
+                            <Badge variant="outline" className={`text-[9px] px-1 py-0 ${style.text}`}>{bay.status}</Badge>
+                            <HelpTooltip description="What it is: Bay health state. Why it matters: Use IDLE bays first, avoid blocked or maintenance bays." />
+                          </span>
                         </div>
                         {bay.currentProduct && (
                           <p className="text-[10px] text-gray-600">{bay.currentProduct.name}</p>
                         )}
                         {bay.changeoverState !== "NOT_ALLOWED" && (
-                          <Badge className="text-[8px] px-1 py-0 bg-amber-100 text-amber-700 mt-1">
-                            {CHANGEOVER_LABEL[bay.changeoverState]}
-                          </Badge>
+                          <span className="inline-flex items-center gap-1">
+                            <Badge className="text-[8px] px-1 py-0 bg-amber-100 text-amber-700 mt-1">
+                              {CHANGEOVER_LABEL[bay.changeoverState]}
+                            </Badge>
+                            <HelpTooltip description="What it is: Product changeover state. Why it matters: Some bays need clearance before loading another product." />
+                          </span>
                         )}
                         {bay.lockedByTrip && (
                           <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1">
@@ -297,14 +310,20 @@ export default function ControllerConsolePage() {
 
         {/* ── CENTER: Ready Queue ─────────────────────────────────────────── */}
         <div className="xl:col-span-5 space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Ready Queue</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1.5">
+            Ready Queue
+            <HelpTooltip description="What it is: Trucks waiting for bay assignment. Why it matters: Prioritize this list to reduce delay." />
+          </h2>
           <Card className="shadow-sm">
             <CardContent className="p-0">
               <Tabs defaultValue="APPOINTMENT">
                 <TabsList className="w-full justify-start rounded-none border-b bg-transparent px-3 pt-2">
                   {(["APPOINTMENT", "FCFS", "RECLASSIFIED", "BLOCKED"] as const).map((cls) => (
                     <TabsTrigger key={cls} value={cls} className="text-xs data-[state=active]:shadow-sm">
-                      {cls} ({queueByPriority[cls]?.length || 0})
+                      <span className="inline-flex items-center gap-1">
+                        <span>{cls} ({queueByPriority[cls]?.length || 0})</span>
+                        <HelpTooltip description="What it is: Queue priority bucket. Why it matters: Higher-priority trucks should be handled first." />
+                      </span>
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -322,11 +341,18 @@ export default function ControllerConsolePage() {
                             <div className="flex items-center gap-2">
                               <Truck className="h-4 w-4 text-gray-500" />
                               <span className="font-mono font-medium text-sm">{trip.truckNumber}</span>
-                              <Badge className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLE[trip.priorityClass]}`}>
-                                {trip.priorityClass}
-                              </Badge>
+                              <span className="inline-flex items-center gap-1">
+                                <Badge className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLE[trip.priorityClass]}`}>
+                                  {trip.priorityClass}
+                                </Badge>
+                                <HelpTooltip description="What it is: Priority class. Why it matters: Guides dispatch order for this truck." />
+                              </span>
                             </div>
-                            {isAtRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                            {isAtRisk && (
+                              <HelpTooltip description="What it is: Risk warning. Why it matters: This truck may miss target timing. Next: reclassify or assign quickly.">
+                                <AlertTriangle className="h-4 w-4 text-red-500" />
+                              </HelpTooltip>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 mb-2">
@@ -374,14 +400,14 @@ export default function ControllerConsolePage() {
                           {/* Actions */}
                           <div className="flex flex-wrap gap-1.5">
                             {rec && (
-                              <Button size="sm" className="h-7 text-xs" onClick={() => setAssignDialog({ tripId: trip.id, bayId: rec.suggested_bay_id })}>
+                              <Button size="sm" className="h-7 text-xs" onClick={() => setAssignDialog({ tripId: trip.id, bayId: rec.suggested_bay_id })} title="Apply AI-recommended bay assignment for this truck.">
                                 <Play className="h-3 w-3 mr-1" /> Apply
                               </Button>
                             )}
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEtaDialog({ tripId: trip.id, truckNumber: trip.truckNumber })}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEtaDialog({ tripId: trip.id, truckNumber: trip.truckNumber })} title="Update truck ETA to improve scheduling accuracy.">
                               <Clock className="h-3 w-3 mr-1" /> ETA
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setReclassifyDialog({ tripId: trip.id, truckNumber: trip.truckNumber })}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setReclassifyDialog({ tripId: trip.id, truckNumber: trip.truckNumber })} title="Change this truck's priority class with a reason.">
                               <Target className="h-3 w-3 mr-1" /> Reclassify
                             </Button>
                           </div>
@@ -401,7 +427,10 @@ export default function ControllerConsolePage() {
 
         {/* ── RIGHT: AI Alerts ────────────────────────────────────────────── */}
         <div className="xl:col-span-3 space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">AI Alerts</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider inline-flex items-center gap-1.5">
+            AI Alerts
+            <HelpTooltip description="What it is: Suggested risk and optimization alerts. Why it matters: Flags issues before they impact throughput." />
+          </h2>
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-2">
@@ -571,7 +600,10 @@ export default function ControllerConsolePage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>ETA (minutes)</Label>
+              <Label className="inline-flex items-center gap-1">
+                <span>ETA (minutes)</span>
+                <HelpTooltip description="What it is: Estimated time to arrival. Why it matters: Better ETA helps prevent bay idle time." />
+              </Label>
               <div className="flex flex-wrap gap-2">
                 {[30, 60, 120, 180, 240, 360].map((m) => (
                   <Button key={m} size="sm" variant={etaMinutes === String(m) ? "default" : "outline"} onClick={() => setEtaMinutes(String(m))}>
@@ -582,7 +614,10 @@ export default function ControllerConsolePage() {
               <Input type="number" placeholder="Custom minutes" value={etaMinutes} onChange={(e) => setEtaMinutes(e.target.value)} className="mt-2" />
             </div>
             <div className="space-y-1">
-              <Label>Source</Label>
+              <Label className="inline-flex items-center gap-1">
+                <span>Source</span>
+                <HelpTooltip description="What it is: Where ETA came from. Why it matters: Confirms how reliable the estimate is." />
+              </Label>
               <Select value={etaSource} onValueChange={setEtaSource}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -613,7 +648,10 @@ export default function ControllerConsolePage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>New Priority Class</Label>
+              <Label className="inline-flex items-center gap-1">
+                <span>New Priority Class</span>
+                <HelpTooltip description="What it is: Priority group for dispatch order. Why it matters: Controls when this truck gets assigned." />
+              </Label>
               <Select value={reclassifyClass} onValueChange={setReclassifyClass}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -625,7 +663,10 @@ export default function ControllerConsolePage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Reason (required)</Label>
+              <Label className="inline-flex items-center gap-1">
+                <span>Reason (required)</span>
+                <HelpTooltip description="What it is: Why priority is changed. Why it matters: Keeps decisions auditable and clear." />
+              </Label>
               <Input value={reclassifyReason} onChange={(e) => setReclassifyReason(e.target.value)} placeholder="Reason for reclassification..." />
             </div>
           </div>

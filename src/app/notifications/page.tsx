@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
 import { Bell, Check } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient()
@@ -32,7 +33,10 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <h1 className="text-2xl font-bold">Notifications</h1>
+      <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+        Notifications
+        <HelpTooltip description="What it is: System alerts and updates. Why it matters: Keeps you aware of events needing attention." />
+      </h1>
       {isLoading ? (
         <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>
       ) : (
@@ -41,7 +45,10 @@ export default function NotificationsPage() {
             <Card key={n.id} className={!n.readAt ? "border-primary/30 bg-primary/5" : ""}>
               <CardContent className="py-3 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
-                  <Bell className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <span className="inline-flex">
+                    <Bell className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <HelpTooltip description="What it is: Notification icon. Why it matters: Indicates an informational alert entry." />
+                  </span>
                   <div>
                     <p className="text-sm font-medium">{n.subject}</p>
                     <p className="text-sm text-muted-foreground">{n.body}</p>
@@ -49,7 +56,7 @@ export default function NotificationsPage() {
                   </div>
                 </div>
                 {!n.readAt && (
-                  <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => markRead.mutate(n.id)} title="Mark this notification as read and clear highlight.">
                     <Check className="h-3 w-3 mr-1" /> Read
                   </Button>
                 )}

@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/components/ui/use-toast"
 import { statusColor, formatDate, formatDateTime } from "@/lib/utils"
 import { Truck, Plus, QrCode, Download } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 import Link from "next/link"
 
 export default function TransporterTripsPage() {
@@ -78,8 +79,8 @@ export default function TransporterTripsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Trips</h1>
-        <Button onClick={() => { setShowAdd(true); if (bookingIdParam) setBookingId(bookingIdParam) }}>
+        <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">My Trips <HelpTooltip description="What it is: Trips created for your assigned bookings. Why it matters: Track truck progress and QR readiness." /></h1>
+        <Button onClick={() => { setShowAdd(true); if (bookingIdParam) setBookingId(bookingIdParam) }} title="Create a truck trip and issue QR for gate processing.">
           <Plus className="h-4 w-4 mr-2" /> Add Truck Trip
         </Button>
       </div>
@@ -110,10 +111,13 @@ export default function TransporterTripsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                    <span className="inline-flex items-center gap-1">
+                      <Badge className={statusColor(trip.status)}>{trip.status.replace(/_/g, " ")}</Badge>
+                      <HelpTooltip description="What it is: Trip stage. Why it matters: Shows whether this truck is ready, inside, or completed." />
+                    </span>
                     {trip.qrToken && (
                       <Link href={`/transporter/trips/${trip.id}/qr`}>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" title="Open printable QR for gate scan.">
                           <QrCode className="h-3 w-3 mr-1" /> View QR
                         </Button>
                       </Link>
@@ -137,7 +141,7 @@ export default function TransporterTripsPage() {
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-4">
             <div className="space-y-2">
-              <Label>Booking</Label>
+              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description="What it is: Booking this truck belongs to. Why it matters: Links trip to approved order details." /></Label>
               {bookingIdParam ? (
                 <Input value={bookingId} readOnly className="bg-muted" />
               ) : (
@@ -157,7 +161,7 @@ export default function TransporterTripsPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Truck Number *</Label>
+              <Label className="inline-flex items-center gap-1">Truck Number * <HelpTooltip description="What it is: Vehicle identifier. Why it matters: Used at gate and throughout tracking." /></Label>
               <Input
                 value={truckNumber}
                 onChange={(e) => setTruckNumber(e.target.value.toUpperCase())}
@@ -166,11 +170,11 @@ export default function TransporterTripsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Driver Name *</Label>
+              <Label className="inline-flex items-center gap-1">Driver Name * <HelpTooltip description="What it is: Person driving the truck. Why it matters: Required for identity and contact at gate." /></Label>
               <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Full name" required />
             </div>
             <div className="space-y-2">
-              <Label>Driver Phone *</Label>
+              <Label className="inline-flex items-center gap-1">Driver Phone * <HelpTooltip description="What it is: Driver contact number. Why it matters: Enables quick coordination for delays or issues." /></Label>
               <Input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="10-digit phone" required />
             </div>
             <DialogFooter>

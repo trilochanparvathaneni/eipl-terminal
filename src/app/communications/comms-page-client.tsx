@@ -7,6 +7,7 @@ import { TaskPanel } from "@/components/comms/task-panel"
 import { EiplAssistDrawer } from "@/components/comms/eipl-assist-drawer"
 import { Button } from "@/components/ui/button"
 import { Sparkles, CheckSquare, MessageSquare } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 interface CommsPageClientProps {
   currentUserId: string
@@ -51,6 +52,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => setTaskPanelOpen((v) => !v)}
+                title="Open conversation tasks for assignment and tracking."
               >
                 <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
                 Tasks
@@ -60,6 +62,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => setAssistOpen(true)}
+                title="Open AI assistant for this conversation context."
               >
                 <Sparkles className="h-3.5 w-3.5 mr-1.5 text-violet-500" />
                 EIPL Assist
@@ -75,7 +78,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
               <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
-              <h2 className="font-semibold text-lg">Communications</h2>
+              <h2 className="font-semibold text-lg inline-flex items-center gap-1.5">Communications <HelpTooltip description="What it is: Messaging workspace by conversation. Why it matters: Keeps coordination and decisions in one place." /></h2>
               <p className="text-sm text-muted-foreground max-w-xs">
                 Select a conversation from the sidebar or create a new one to get started.
               </p>

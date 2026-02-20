@@ -11,6 +11,7 @@ import { ForecastChart } from "@/components/forecast/ForecastChart"
 import { RiskScoreCard } from "@/components/forecast/RiskScoreCard"
 import { RecommendationList } from "@/components/forecast/RecommendationList"
 import { SimulationPanel } from "@/components/forecast/SimulationPanel"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 // Shape of the raw data returned by GET /api/forecast
 interface ForecastApiResponse {
@@ -121,6 +122,7 @@ export default function ForecastPage() {
           onClick={() => fetchData(true)}
           disabled={isLoading || isRefreshing}
           className="gap-2"
+          title="Refresh forecast input from latest live operational data."
         >
           <RefreshCw
             className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
@@ -195,12 +197,16 @@ export default function ForecastPage() {
             {/* Chart card */}
             <Card className="shadow-sm">
               <CardContent className="pt-5 pb-4">
-                <ForecastChart
-                  buckets={forecastResult.buckets}
-                  totalBays={rawData?.currentState.totalBays}
-                />
-              </CardContent>
-            </Card>
+                  <ForecastChart
+                    buckets={forecastResult.buckets}
+                    totalBays={rawData?.currentState.totalBays}
+                  />
+                  <div className="mt-2 text-xs text-slate-500 inline-flex items-center gap-1">
+                    <span>Forecast chart</span>
+                    <HelpTooltip description="What it is: 2-hour congestion projection. Why it matters: Helps plan actions before queue buildup." />
+                  </div>
+                </CardContent>
+              </Card>
 
             {/* Historical stats banner (if available) */}
             {rawData?.historicalStats.avgTurnaroundMin != null && (
@@ -224,6 +230,10 @@ export default function ForecastPage() {
             <RecommendationList
               recommendations={forecastResult.recommendations}
             />
+            <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+              <span>Recommendations</span>
+              <HelpTooltip description="What it is: Suggested next actions. Why it matters: Reduces risk score and queue time." />
+            </div>
           </div>
 
           {/* Right column: risk score + simulation */}
@@ -234,6 +244,10 @@ export default function ForecastPage() {
               onChange={handleParamsChange}
               isComputing={isComputing}
             />
+            <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+              <span>Simulation controls</span>
+              <HelpTooltip description="What it is: Scenario inputs for what-if testing. Why it matters: See impact before real changes." />
+            </div>
           </div>
         </div>
       )}

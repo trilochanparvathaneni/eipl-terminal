@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatDateTime } from "@/lib/utils"
 import { Eye } from "lucide-react"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 export default function AuditLogsPage() {
   const [entityType, setEntityType] = useState("")
@@ -36,13 +37,16 @@ export default function AuditLogsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Audit Logs</h1>
+      <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+        Audit Logs
+        <HelpTooltip description="What it is: History of important system actions. Why it matters: Supports traceability and compliance review." />
+      </h1>
 
       <Card>
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select value={entityType} onValueChange={setEntityType}>
-              <SelectTrigger><SelectValue placeholder="Entity type" /></SelectTrigger>
+              <SelectTrigger title="Filter logs by object type such as Booking or Incident."><SelectValue placeholder="Entity type" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 <SelectItem value="Booking">Booking</SelectItem>
@@ -53,8 +57,8 @@ export default function AuditLogsPage() {
                 <SelectItem value="Incident">Incident</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="Start date for audit records." />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="End date for audit records." />
           </div>
         </CardContent>
       </Card>
@@ -69,11 +73,11 @@ export default function AuditLogsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Timestamp</TableHead>
-                      <TableHead>Actor</TableHead>
-                      <TableHead>Entity</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Entity ID</TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Timestamp <HelpTooltip description="What it is: Time of action. Why it matters: Reconstruct event sequence." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Actor <HelpTooltip description="What it is: User who performed action. Why it matters: Accountability and investigation." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Entity <HelpTooltip description="What it is: Object type affected. Why it matters: Narrows audit scope." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Action <HelpTooltip description="What it is: Operation performed. Why it matters: Shows exactly what changed." /></span></TableHead>
+                      <TableHead><span className="inline-flex items-center gap-1">Entity ID <HelpTooltip description="What it is: Unique record reference. Why it matters: Find the exact object involved." /></span></TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -86,7 +90,7 @@ export default function AuditLogsPage() {
                         <TableCell className="font-medium">{log.action}</TableCell>
                         <TableCell className="text-xs font-mono">{log.entityId.slice(0, 8)}...</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => setSelectedLog(log)}>
+                          <Button variant="ghost" size="icon" onClick={() => setSelectedLog(log)} title="Open full before/after log details.">
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -105,8 +109,8 @@ export default function AuditLogsPage() {
                 <div className="flex items-center justify-between p-4 border-t">
                   <p className="text-sm text-muted-foreground">Page {page} of {Math.ceil(data.total / 20)}</p>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-                    <Button variant="outline" size="sm" disabled={page * 20 >= data.total} onClick={() => setPage(page + 1)}>Next</Button>
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} title="Go to previous audit page.">Previous</Button>
+                    <Button variant="outline" size="sm" disabled={page * 20 >= data.total} onClick={() => setPage(page + 1)} title="Go to next audit page.">Next</Button>
                   </div>
                 </div>
               )}

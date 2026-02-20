@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 import { normalizeArmsPayload, normalizeTripsPayload } from "@/lib/yard-console"
 import {
   Radio, Truck, AlertTriangle, CheckCircle, Lock, Wrench,
@@ -344,7 +345,10 @@ export default function YardConsolePage() {
         <div className="flex items-center gap-3">
           <Radio className="h-6 w-6 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Yard Console</h1>
+            <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
+              Yard Console
+              <HelpTooltip description="What it is: Arm-level control board. Why it matters: Assign trucks to the right arm faster and safer." />
+            </h1>
             <p className="text-sm text-muted-foreground">
               Arm-level bay management and truck queue assignment
             </p>
@@ -365,6 +369,7 @@ export default function YardConsolePage() {
               queryClient.invalidateQueries({ queryKey: ["ready-queue-trips"] })
               queryClient.invalidateQueries({ queryKey: ["blocked-trips"] })
             }}
+            title="Refresh bays, ready queue, and blocked trips."
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1" /> Refresh
           </Button>
@@ -378,6 +383,7 @@ export default function YardConsolePage() {
         <div className="lg:col-span-5 space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <Layers className="h-4 w-4" /> Gantry / Bay / Arm Grid
+            <HelpTooltip description="What it is: Physical loading layout by gantry, bay, and arm. Why it matters: Shows where capacity is available." />
           </h2>
 
           {armsLoading && (
@@ -417,9 +423,12 @@ export default function YardConsolePage() {
                           <span className="font-bold text-xs">{bay.bayCode}</span>
                           <span className="text-[10px] text-muted-foreground">{bay.bayName}</span>
                         </div>
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${bayStyle.text}`}>
-                          {bay.bayStatus}
-                        </Badge>
+                        <span className="inline-flex items-center gap-1">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${bayStyle.text}`}>
+                            {bay.bayStatus}
+                          </Badge>
+                          <HelpTooltip description="What it is: Bay status. Why it matters: Use available bays first and avoid blocked bays." />
+                        </span>
                       </div>
 
                       {/* Arms Grid */}
@@ -455,9 +464,12 @@ export default function YardConsolePage() {
                               )}
 
                               {/* Status Badge */}
-                              <Badge variant="outline" className={`text-[8px] px-1 py-0 mt-1 w-full justify-center ${armStyle.text}`}>
-                                {armStyle.label}
-                              </Badge>
+                              <span className="inline-flex items-center gap-1">
+                                <Badge variant="outline" className={`text-[8px] px-1 py-0 mt-1 w-full justify-center ${armStyle.text}`}>
+                                  {armStyle.label}
+                                </Badge>
+                                <HelpTooltip description="What it is: Arm availability state. Why it matters: Confirms if this arm can be assigned." />
+                              </span>
 
                               {/* Changeover Badge */}
                               {arm.changeoverState !== "NOT_ALLOWED" && changeover?.label && (
@@ -510,6 +522,7 @@ export default function YardConsolePage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
             <Truck className="h-4 w-4" /> Ready Queue
             <Badge variant="outline" className="ml-1 text-[10px]">{readyTrips.length}</Badge>
+            <HelpTooltip description="What it is: Trucks cleared and waiting for arm assignment. Why it matters: This is the live workload queue." />
           </h2>
 
           {tripsLoading && (
@@ -540,9 +553,12 @@ export default function YardConsolePage() {
                       <div className="flex items-center gap-2">
                         <Truck className="h-4 w-4 text-gray-500" />
                         <span className="font-mono font-bold text-sm">{trip.truckNumber}</span>
-                        <Badge className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLE[trip.priorityClass] || PRIORITY_STYLE.FCFS}`}>
-                          {trip.priorityClass}
-                        </Badge>
+                        <span className="inline-flex items-center gap-1">
+                          <Badge className={`text-[10px] px-1.5 py-0 ${PRIORITY_STYLE[trip.priorityClass] || PRIORITY_STYLE.FCFS}`}>
+                            {trip.priorityClass}
+                          </Badge>
+                          <HelpTooltip description="What it is: Priority level for dispatch. Why it matters: Higher priority should be assigned sooner." />
+                        </span>
                       </div>
                       {trip.queuePosition != null && (
                         <Badge variant="outline" className="text-[10px]">
@@ -614,6 +630,7 @@ export default function YardConsolePage() {
                     <Button
                       size="sm"
                       className="h-7 text-xs w-full"
+                      title="Open assignment dialog to choose bay and arm for this truck."
                       onClick={() => {
                         setAssignDialog({
                           tripId: trip.id,
@@ -643,6 +660,7 @@ export default function YardConsolePage() {
             <Badge variant="outline" className="ml-1 text-[10px] border-red-300 text-red-600">
               {blockedTrips.length}
             </Badge>
+            <HelpTooltip description="What it is: Trips blocked by compliance checks. Why it matters: Must be resolved before loading." />
           </h2>
 
           {blockedTrips.length === 0 && (
@@ -669,7 +687,10 @@ export default function YardConsolePage() {
                         <Ban className="h-4 w-4 text-red-500" />
                         <span className="font-mono font-bold text-sm">{trip.truckNumber}</span>
                       </div>
-                      <Badge className="bg-red-100 text-red-800 text-[10px]">BLOCKED</Badge>
+                      <span className="inline-flex items-center gap-1">
+                        <Badge className="bg-red-100 text-red-800 text-[10px]">BLOCKED</Badge>
+                        <HelpTooltip description="What it is: Hard stop status. Why it matters: This truck cannot proceed until issues are cleared." />
+                      </span>
                     </div>
 
                     {/* Product Info */}
@@ -704,6 +725,7 @@ export default function YardConsolePage() {
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                        title="Open booking document page to upload missing compliance files."
                         onClick={() => {
                           window.open(`/client/documents?bookingId=${trip.bookingId || trip.booking.id}`, "_blank")
                         }}
@@ -714,6 +736,7 @@ export default function YardConsolePage() {
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs flex-1 border-green-200 text-green-700 hover:bg-green-50"
+                        title="Run compliance checks again after documents or data are updated."
                         onClick={() => {
                           toast({ title: "Re-evaluation requested", description: `Compliance check queued for ${trip.truckNumber}` })
                         }}
@@ -751,7 +774,10 @@ export default function YardConsolePage() {
             <div className="space-y-4">
               {/* Select Arm */}
               <div className="space-y-1.5">
-                <Label>Select Loading Arm *</Label>
+                <Label className="inline-flex items-center gap-1">
+                  <span>Select Loading Arm *</span>
+                  <HelpTooltip description="What it is: Exact arm for this truck. Why it matters: Wrong arm/product match can cause delays or safety risk." />
+                </Label>
                 <Select value={selectedArmId} onValueChange={(v) => {
                   setSelectedArmId(v)
                   const arm = allArms.find((a) => a.id === v)
