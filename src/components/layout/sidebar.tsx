@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { getNavItems } from "@/lib/rbac"
 import { cn } from "@/lib/utils"
+import { BrandLockup } from "@/components/brand/BrandLockup"
 import {
   LayoutDashboard,
   CalendarDays,
@@ -56,8 +57,12 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   const nav = (
     <div className="flex flex-col h-full">
-      {/* Nav list — pt-14 clears the fixed header (h-12 = 48px) */}
-      <nav className="flex-1 overflow-y-auto pt-14 p-3 space-y-1">
+      {/* Logo — pt-14 clears the fixed header (h-12 = 48px) */}
+      <div className="pt-14 px-4 pb-3 flex justify-center shrink-0">
+        <BrandLockup variant="auth" />
+      </div>
+      {/* Nav list */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {navItems.map((item) => {
           const Icon = iconMap[item.label] || LayoutDashboard
           const isActive =
