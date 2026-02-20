@@ -104,7 +104,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           add lg:pl-64 to push header content right of the sidebar.
       */}
       <header className="fixed top-0 right-0 left-0 z-30 bg-white border-b border-slate-200 shadow-[0_2px_4px_rgba(15,23,42,0.06)] lg:pl-64">
-        <div className="flex h-14 items-center gap-3 px-4 lg:gap-4 lg:px-6">
+        <div className="flex h-14 items-center gap-4 px-6 lg:gap-6 lg:px-10">
 
           {/* Hamburger — only visible on mobile (below lg) */}
           <button
@@ -115,19 +115,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="h-4 w-4" />
           </button>
 
-          {/* Global search — centered on md+ */}
-          <div className="hidden md:flex flex-1 justify-center px-4 xl:px-10">
+          {/* Global search — centered, capped width so it doesn't crowd the right icons */}
+          <div className="hidden md:flex flex-1 justify-center px-8 xl:px-16">
             {role && <GlobalSearch ref={searchRef} role={role} onTour={resetTour} />}
           </div>
 
           <div className="flex-1 md:hidden" />
 
-          {/* Right controls */}
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {/* Right controls — generous gap so icons never touch each other or the search bar */}
+          <div className="ml-auto flex shrink-0 items-center gap-4">
             <NotificationBell />
 
             {/* Thin vertical divider */}
-            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+            <div className="w-px h-5 bg-slate-200" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

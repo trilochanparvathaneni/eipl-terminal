@@ -101,8 +101,8 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
     let flatIndex = 0
 
     return (
-      <div className={className ?? "relative w-full max-w-[560px]"} data-tour="search">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <div className={className ?? "relative w-full max-w-[580px]"} data-tour="search">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <input
           ref={ref}
           type="text"
@@ -118,8 +118,8 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
             setOpen(true)
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Search pages and actions ( / )"
-          className="h-8 w-full rounded-full border border-transparent bg-slate-100 pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-slate-300 focus:bg-white"
+          placeholder="Search pages and actions  ( / )"
+          className="h-9 w-full rounded-full border border-transparent bg-slate-100 pl-10 pr-5 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-slate-300 focus:bg-white focus:shadow-sm"
         />
 
         {open && (
