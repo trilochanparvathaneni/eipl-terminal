@@ -2,12 +2,11 @@
 
 import { useSession, signOut } from "next-auth/react"
 import { useRouter, usePathname } from "next/navigation"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Sidebar } from "./sidebar"
 import { NotificationBell } from "./notification-bell"
 import { ChatbotWidget } from "./chatbot-widget"
 import { resolveTheme } from "@/lib/brand/theme"
-import { getNavItems } from "@/lib/rbac"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -16,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Menu, Plus, Settings, LogOut, User, PlayCircle } from "lucide-react"
+import { Menu, Settings, LogOut, User, PlayCircle } from "lucide-react"
 import { GlobalSearch } from "./global-search"
 import { ProductTour } from "@/components/onboarding/product-tour"
 import { useProductTour } from "@/hooks/use-product-tour"
@@ -104,12 +103,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         On desktop (lg+): left 256px is occupied by the fixed sidebar, so we
           add lg:pl-64 to push header content right of the sidebar.
       */}
-      <header className="fixed top-0 right-0 left-0 z-30 bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:pl-64">
-        <div className="flex h-12 items-center gap-2 px-2 lg:gap-3 lg:px-5">
+      <header className="fixed top-0 right-0 left-0 z-30 bg-white border-b border-slate-200 shadow-[0_2px_4px_rgba(15,23,42,0.06)] lg:pl-64">
+        <div className="flex h-14 items-center gap-3 px-4 lg:gap-4 lg:px-6">
 
           {/* Hamburger — only visible on mobile (below lg) */}
           <button
-            className="lg:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+            className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
             onClick={() => setMobileSidebarOpen((v) => !v)}
             aria-label="Toggle navigation"
           >
@@ -117,28 +116,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Global search — centered on md+ */}
-          <div className="hidden md:flex flex-1 justify-center px-2 xl:px-6">
+          <div className="hidden md:flex flex-1 justify-center px-4 xl:px-10">
             {role && <GlobalSearch ref={searchRef} role={role} onTour={resetTour} />}
           </div>
 
           <div className="flex-1 md:hidden" />
 
           {/* Right controls */}
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
-            <button
-              onClick={() => searchRef.current?.focus()}
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-white shadow-sm transition-colors hover:bg-indigo-600"
-              title="Quick search"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <NotificationBell />
+
+            {/* Thin vertical divider */}
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 transition-all hover:ring-2 hover:ring-indigo-200"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700 transition-all hover:bg-indigo-200 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-1"
                   data-tour="profile"
                   title={userName}
                 >

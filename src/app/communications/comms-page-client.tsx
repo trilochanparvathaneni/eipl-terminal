@@ -32,7 +32,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
      * then we add back exactly the header height as top padding.
      * overflow-hidden on the wrapper keeps all scrolling contained within panels.
      */
-    <div className="-m-4 lg:-m-8 -mt-16 lg:-mt-20 pt-12 flex h-screen overflow-hidden">
+    <div className="-m-4 lg:-m-8 -mt-16 lg:-mt-20 pt-14 flex h-screen overflow-hidden">
       {/* Left panel — Conversation list */}
       <div className="w-56 lg:w-64 shrink-0 border-r bg-background flex flex-col">
         <ConversationSidebar
