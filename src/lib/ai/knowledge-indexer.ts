@@ -18,27 +18,42 @@ export async function indexKnowledgeDocument(
   const chunks = chunkText(text, { chunkSize: 500, overlap: 100 })
   if (chunks.length === 0) return 0
 
-  // Embed all chunks in one batched call
-  const embeddings = await embedBatch(chunks.map((c) => c.chunkText))
+  // Attempt to embed all chunks; fall back to NULL embeddings if unavailable.
+  let embeddings: (number[] | null)[] = new Array(chunks.length).fill(null)
+  let embeddingError: string | null = null
+  try {
+    const vecs = await embedBatch(chunks.map((c) => c.chunkText))
+    embeddings = vecs
+  } catch (err) {
+    embeddingError = err instanceof Error ? err.message : String(err)
+    logger.warn({ documentId, error: embeddingError }, "Embedding failed — storing chunks without vectors (text search only)")
+  }
 
   // Delete any existing chunks for this document (re-index scenario)
   await prisma.knowledgeChunk.deleteMany({ where: { documentId } })
 
-  // Insert chunks with embeddings via raw SQL (Prisma can't write vector type)
+  // Insert chunks; use vector if available, otherwise leave embedding NULL
   for (let i = 0; i < chunks.length; i++) {
     const { chunkIndex, chunkText: text } = chunks[i]
-    const embLiteral = embeddingToSql(embeddings[i])
+    const vec = embeddings[i]
 
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "KnowledgeChunk" ("id", "documentId", "orgSlug", "chunkIndex", "chunkText", "embedding", "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())`,
-      randomUUID(),
-      documentId,
-      orgSlug,
-      chunkIndex,
-      text,
-      embLiteral
-    )
+    if (vec) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "KnowledgeChunk" ("id", "documentId", "orgSlug", "chunkIndex", "chunkText", "embedding", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6::vector, NOW())`,
+        randomUUID(), documentId, orgSlug, chunkIndex, text, embeddingToSql(vec)
+      )
+    } else {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "KnowledgeChunk" ("id", "documentId", "orgSlug", "chunkIndex", "chunkText", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        randomUUID(), documentId, orgSlug, chunkIndex, text
+      )
+    }
+  }
+
+  if (embeddingError) {
+    logger.info({ documentId, chunks: chunks.length }, "Chunks stored (text-only, no vectors)")
   }
 
   logger.info({ documentId, orgSlug, chunks: chunks.length }, "Knowledge document indexed")
