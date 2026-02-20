@@ -233,6 +233,7 @@ model User {
   mentionsReceived        MessageMention[]       @relation("MentionedUser")
   tasksAssigned           Task[]                 @relation("TaskAssignee")
   tasksCreated            Task[]                 @relation("TaskCreator")
+  knowledgeDocsCreated    KnowledgeDocument[]    @relation("KnowledgeDocCreator")
 
   @@index([role])
   @@index([email])
@@ -978,4 +979,39 @@ model TaskLink {
   @@id([taskId, conversationId, messageId])
   @@index([conversationId])
   @@index([messageId])
+}
+
+// ── Knowledge Base (RAG) ─────────────────────────────────────────────────────
+
+/// SOP / compliance documents uploaded to the org-scoped knowledge base.
+model KnowledgeDocument {
+  id              String   @id @default(cuid())
+  orgSlug         String
+  title           String
+  sourceType      String   @default("UPLOAD") // UPLOAD | SEED
+  storagePath     String
+  permissions     String   @default("INTERNAL_ONLY") // INTERNAL_ONLY | ORG_ONLY
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  createdBy User             @relation("KnowledgeDocCreator", fields: [createdByUserId], references: [id])
+  chunks    KnowledgeChunk[]
+
+  @@index([orgSlug])
+}
+
+/// Text chunks with pgvector embeddings for semantic RAG retrieval.
+/// The `embedding` column (vector(1536)) is added by raw migration SQL.
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  orgSlug    String
+  chunkIndex Int
+  chunkText  String
+  createdAt  DateTime @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([orgSlug])
 }

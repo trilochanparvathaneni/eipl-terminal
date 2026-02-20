@@ -52,6 +52,7 @@ export const ROLE_PERMISSIONS: Record<string, Role[]> = {
   'controller:reclassify': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN],
   'changeover:set_ready': [Role.TRAFFIC_CONTROLLER, Role.HSE_OFFICER, Role.SUPER_ADMIN],
   'ai:read': [Role.TRAFFIC_CONTROLLER, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.AUDITOR],
+  'ai:upload': [Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.HSE_OFFICER], // internal-only SOP upload
 
   // Documents / Compliance
   'document:upload': [Role.CLIENT, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN, Role.TRANSPORTER],

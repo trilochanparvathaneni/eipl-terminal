@@ -64,6 +64,7 @@ export const P = {
   CONTROLLER_RECLASSIFY: "controller:reclassify",
   CHANGEOVER_SET_READY: "changeover:set_ready",
   AI_READ: "ai:read",
+  AI_UPLOAD: "ai:upload", // upload SOP / compliance docs to knowledge base
 
   // ── Documents / Compliance ─────────────────────────────────────────────
   DOCUMENT_UPLOAD: "document:upload",
