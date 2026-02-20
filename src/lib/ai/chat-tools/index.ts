@@ -1,4 +1,5 @@
 import type { ChatCompletionTool } from "openai/resources/chat/completions"
+import type { FunctionDeclaration } from "@google/generative-ai"
 import { createAuditLog } from "@/lib/audit"
 import { redactParams } from "@/lib/ai/redact"
 import { logger } from "@/lib/logger"
@@ -10,7 +11,7 @@ import type { ChatToolContext, ChatToolFn, ChatToolResult } from "./types"
 
 export type { ChatToolContext, ChatToolResult }
 
-// ── OpenAI function schemas ─────────────────────────────────────────────────
+// ── OpenAI function schemas (kept for reference) ────────────────────────────
 
 export const CHAT_TOOL_DEFINITIONS: ChatCompletionTool[] = [
   {
@@ -113,6 +114,18 @@ export const CHAT_TOOL_DEFINITIONS: ChatCompletionTool[] = [
     },
   },
 ]
+
+// ── Gemini function declarations (same schema, different wrapper) ────────────
+
+export const GEMINI_TOOL_DECLARATIONS: FunctionDeclaration[] =
+  CHAT_TOOL_DEFINITIONS.map((t) => {
+    const fn = (t as any).function
+    return {
+      name: fn.name as string,
+      description: fn.description as string,
+      parameters: fn.parameters as FunctionDeclaration["parameters"],
+    }
+  })
 
 // ── Executor map ────────────────────────────────────────────────────────────
 
