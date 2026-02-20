@@ -142,16 +142,19 @@ export function Sidebar({ mobileOpen, onMobileClose, collapsed, onToggleCollapse
       </nav>
 
       <div className="shrink-0 border-t border-slate-800 p-2">
-        <button
-          type="button"
+        <Link
+          href="/settings"
+          onClick={onMobileClose}
           className={cn(
             "flex w-full items-center rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100",
+            pathname === "/settings" && "border-blue-200 bg-blue-50 text-blue-700",
             collapsed ? "justify-center px-2" : "gap-2"
           )}
+          title="Open application settings."
         >
           <Settings className="h-4 w-4" />
           {!collapsed && <span>Settings</span>}
-        </button>
+        </Link>
       </div>
       <div className="shrink-0 border-t border-slate-800 p-2">
         <div className={cn("rounded-md px-2 py-2", collapsed ? "text-center" : "") }>
