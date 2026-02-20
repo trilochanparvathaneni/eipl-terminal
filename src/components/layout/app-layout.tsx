@@ -7,6 +7,7 @@ import { Sidebar } from "./sidebar"
 import { NotificationBell } from "./notification-bell"
 import { ChatbotWidget } from "./chatbot-widget"
 import { resolveTheme } from "@/lib/brand/theme"
+import { BrandMark } from "@/components/brand/BrandMark"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -122,12 +123,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1 md:hidden" />
 
-          {/* Right controls — generous gap so icons never touch each other or the search bar */}
-          <div className="ml-auto flex shrink-0 items-center gap-4">
+          {/* Right controls — Bell | Avatar | Logo, gap-8 between each */}
+          <div className="ml-auto flex shrink-0 items-center gap-8">
             <NotificationBell />
-
-            {/* Thin vertical divider */}
-            <div className="w-px h-5 bg-slate-200" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -172,6 +170,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Brand logo — scaled down for header (≈32px tall) */}
+            <div className="hidden lg:block shrink-0 h-8 w-20 overflow-hidden opacity-90">
+              <BrandMark />
+            </div>
           </div>
         </div>
       </header>
