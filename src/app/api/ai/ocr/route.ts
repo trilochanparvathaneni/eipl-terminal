@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import path from "path"
 import { requireAuth } from "@/lib/auth-utils"
 import { hasPermission } from "@/lib/rbac"
 import { extractFromDocumentText } from "@/lib/document-extraction"
-import { getOpenAIClient, CHAT_MODEL } from "@/lib/ai/openai-client"
+import { getOpenAIClient } from "@/lib/ai/openai-client"
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"])
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File must be 1 byte – 5 MB" }, { status: 400 })
   }
 
-  const ext = require("path").extname(file.name).toLowerCase() as string
+  const ext = path.extname(file.name).toLowerCase()
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 

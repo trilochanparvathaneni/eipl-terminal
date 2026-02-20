@@ -2,16 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { authorize } from "@/lib/auth/authorize"
 import { P } from "@/lib/auth/permissions"
 import { prisma } from "@/lib/prisma"
-import { promises as fs } from "fs"
 import path from "path"
-import { randomUUID } from "crypto"
 import { indexKnowledgeDocument } from "@/lib/ai/knowledge-indexer"
 import { createAuditLog } from "@/lib/audit"
 
 const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
 const ALLOWED_EXT = new Set([".pdf", ".txt", ".md", ".csv"])
 
-// Resolve the org slug for the uploading user.
 // Internal staff upload to the shared "eipl" knowledge base.
 function resolveOrgSlug(user: { role: string; clientId?: string | null }): string {
   if (user.role === "CLIENT" && user.clientId) return user.clientId
@@ -44,41 +41,38 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // ── Save file to uploads directory ─────────────────────────────────────────
-  const uploadsDir = path.join(process.cwd(), "uploads", "knowledge")
-  await fs.mkdir(uploadsDir, { recursive: true })
-  const fileName = `${randomUUID()}${ext}`
-  const filePath = path.join(uploadsDir, fileName)
+  // ── Extract text from buffer in memory (no disk write — works on Vercel) ───
   const bytes = await file.arrayBuffer()
-  await fs.writeFile(filePath, Buffer.from(bytes))
+  const buffer = Buffer.from(bytes)
 
-  // ── Extract text from file ──────────────────────────────────────────────────
   let extractedText = ""
   if (ext === ".txt" || ext === ".md" || ext === ".csv") {
-    extractedText = Buffer.from(bytes).toString("utf-8")
+    extractedText = buffer.toString("utf-8")
   } else if (ext === ".pdf") {
-    // For PDFs, read raw bytes and try to extract printable ASCII text.
-    // Production should use a proper PDF parser or OCR.
-    extractedText = Buffer.from(bytes).toString("latin1").replace(/[^\x20-\x7E\n\r\t]/g, " ")
+    // Naive printable-ASCII extraction for text-based PDFs.
+    // Binary/scanned PDFs should go through /api/ai/ocr instead.
+    extractedText = buffer.toString("latin1").replace(/[^\x20-\x7E\n\r\t]/g, " ").replace(/ {3,}/g, " ")
   }
 
   if (!extractedText.trim()) {
-    await fs.unlink(filePath).catch(() => {})
-    return NextResponse.json({ error: "Could not extract text from document" }, { status: 422 })
+    return NextResponse.json(
+      { error: "Could not extract text. For scanned PDFs or images use /api/ai/ocr instead." },
+      { status: 422 }
+    )
   }
 
-  // ── Persist KnowledgeDocument ───────────────────────────────────────────────
+  // ── Persist KnowledgeDocument (storagePath = "memory" — no file stored) ───
   const orgSlug = resolveOrgSlug(ctx.user)
   const doc = await prisma.knowledgeDocument.create({
     data: {
       orgSlug,
       title,
-      storagePath: `uploads/knowledge/${fileName}`,
+      storagePath: "memory",
       createdByUserId: ctx.user.id,
     },
   })
 
-  // ── Chunk + embed + index (async but awaited so we can report chunk count) ─
+  // ── Chunk + embed + store KnowledgeChunks ──────────────────────────────────
   const chunkCount = await indexKnowledgeDocument(doc.id, orgSlug, extractedText)
 
   await createAuditLog({
