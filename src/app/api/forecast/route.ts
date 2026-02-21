@@ -33,10 +33,27 @@ export async function GET(request: NextRequest) {
     const todayEnd = new Date(now)
     todayEnd.setHours(23, 59, 59, 999)
 
+    // ── Resolve terminal for this user ─────────────────────────────────────
+    const terminalId = ctx.user.terminalId ?? undefined
+    const terminal = terminalId
+      ? await prisma.terminal.findUnique({
+          where: { id: terminalId },
+          select: { insideYardLimit: true, outsideQueueLimit: true },
+        })
+      : null
+
+    const insideYardLimit   = terminal?.insideYardLimit   ?? 8
+    const outsideQueueLimit = terminal?.outsideQueueLimit ?? 15
+
     // ── Parallel DB queries ─────────────────────────────────────────────────
+    const bayWhere = terminalId
+      ? { gantry: { terminalId } }
+      : undefined
+
     const [bays, tripsToday, tripsInTerminal] = await Promise.all([
-      // Current bay occupancy
+      // Current bay occupancy (scoped to this terminal if available)
       prisma.bay.findMany({
+        where: bayWhere,
         select: { status: true },
       }),
 
@@ -193,6 +210,10 @@ export async function GET(request: NextRequest) {
         currentInsideYard,
         currentOutsideQueue,
         totalBays: bays.length,
+      },
+      terminalLimits: {
+        insideYardLimit,
+        outsideQueueLimit,
       },
       scheduledTrucks,
       historicalStats: {

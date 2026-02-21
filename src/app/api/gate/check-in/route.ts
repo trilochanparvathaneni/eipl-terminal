@@ -6,12 +6,21 @@ import { createAuditLog } from '@/lib/audit'
 import { notifyByRole } from '@/lib/notifications'
 import { Role, BookingStatus, TruckTripStatus, GateEventType } from '@prisma/client'
 import { enforceTerminalAccess } from '@/lib/auth/scope'
+import { apiRateLimit, RATE_LIMITS } from '@/lib/api-rate-limiter'
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(Role.SECURITY)
   if (error) return error
   const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
   if (terminalAccessError) return terminalAccessError
+
+  const { allowed, retryAfterMs } = apiRateLimit(user!.id, 'gate:check-in', RATE_LIMITS.gate.maxRequests, RATE_LIMITS.gate.windowMs)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait before retrying.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 0) / 1000)) } }
+    )
+  }
 
   const body = await req.json()
   const parsed = gateCheckInSchema.safeParse(body)
@@ -101,6 +110,7 @@ export async function POST(req: NextRequest) {
 
   await createAuditLog({
     actorUserId: user!.id,
+    terminalId: trip.booking.terminalId,
     entityType: 'GateEvent',
     entityId: gateEvent.id,
     action: 'CHECK_IN',

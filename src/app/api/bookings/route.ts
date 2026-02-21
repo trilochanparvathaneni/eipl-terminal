@@ -7,6 +7,7 @@ import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
 import { bookingScopeForUser, enforceTerminalAccess } from '@/lib/auth/scope'
+import { apiRateLimit, RATE_LIMITS } from '@/lib/api-rate-limiter'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth()
@@ -70,6 +71,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(Role.CLIENT, Role.TERMINAL_ADMIN, Role.SUPER_ADMIN)
   if (error) return error
+
+  const { allowed, retryAfterMs } = apiRateLimit(user!.id, 'bookings:create', RATE_LIMITS['bookings:create'].maxRequests, RATE_LIMITS['bookings:create'].windowMs)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait before retrying.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 0) / 1000)) } }
+    )
+  }
 
   const body = await req.json()
   const parsed = createBookingSchema.safeParse(body)

@@ -3,6 +3,8 @@ import { logger } from './logger'
 
 export async function createAuditLog(params: {
   actorUserId: string
+  /** Terminal that this action belongs to. Stamped immutably at write time. */
+  terminalId?: string | null
   entityType: string
   entityId: string
   action: string
@@ -14,6 +16,7 @@ export async function createAuditLog(params: {
     await prisma.auditLog.create({
       data: {
         actorUserId: params.actorUserId,
+        terminalId: params.terminalId ?? null,
         entityType: params.entityType,
         entityId: params.entityId,
         action: params.action,

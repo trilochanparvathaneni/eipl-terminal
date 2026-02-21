@@ -48,8 +48,18 @@ export async function POST(
 
     const now = new Date()
 
-    // Resolve the stop work order and restore booking status in a transaction
-    const [resolved] = await prisma.$transaction([
+    // Check if this is the last active stop work order for this booking
+    const remainingActiveOrders = await prisma.stopWorkOrder.count({
+      where: {
+        bookingId: stopWorkOrder.bookingId,
+        active: true,
+        id: { not: id }, // exclude the one we're about to resolve
+      },
+    })
+    const isLastActiveOrder = remainingActiveOrders === 0
+
+    // Resolve the stop work order; only restore booking status if no other active orders remain
+    const ops: Parameters<typeof prisma.$transaction>[0] = [
       prisma.stopWorkOrder.update({
         where: { id },
         data: {
@@ -67,29 +77,46 @@ export async function POST(
           issuedBy: { select: { id: true, name: true, email: true } },
         },
       }),
-      prisma.booking.update({
-        where: { id: stopWorkOrder.bookingId },
-        data: { status: BookingStatus.OPS_SCHEDULED },
-      }),
-    ])
+    ]
+
+    if (isLastActiveOrder) {
+      ops.push(
+        prisma.booking.update({
+          where: { id: stopWorkOrder.bookingId },
+          data: { status: BookingStatus.OPS_SCHEDULED },
+        })
+      )
+    }
+
+    const [resolved] = await prisma.$transaction(ops)
 
     await createAuditLog({
       actorUserId: user!.id,
+      terminalId: stopWorkOrder.booking.terminalId,
       entityType: 'StopWorkOrder',
       entityId: id,
       action: 'RESOLVE',
       before: { active: true, bookingStatus: BookingStatus.STOP_WORK },
-      after: { active: false, resolvedAt: now, bookingStatus: BookingStatus.OPS_SCHEDULED },
+      after: {
+        active: false,
+        resolvedAt: now,
+        bookingStatus: isLastActiveOrder ? BookingStatus.OPS_SCHEDULED : BookingStatus.STOP_WORK,
+        remainingActiveOrders,
+      },
     })
 
     const booking = stopWorkOrder.booking
+
+    const notifyBody = isLastActiveOrder
+      ? `The stop work order for booking ${booking.bookingNo} has been resolved. Booking status restored to OPS_SCHEDULED.`
+      : `A stop work order for booking ${booking.bookingNo} has been resolved, but ${remainingActiveOrders} active order(s) remain. Operations are still halted.`
 
     // Notify TERMINAL_ADMIN, SECURITY, and CLIENT users
     await notifyByRole({
       roles: ['TERMINAL_ADMIN', 'SECURITY'],
       terminalId: booking.terminalId,
       subject: `Stop Work Order Resolved - Booking ${booking.bookingNo}`,
-      body: `The stop work order for booking ${booking.bookingNo} has been resolved. Booking status restored to OPS_SCHEDULED.`,
+      body: notifyBody,
     })
 
     // Notify client users
@@ -98,11 +125,15 @@ export async function POST(
       select: { id: true },
     })
 
+    const clientNotifyBody = isLastActiveOrder
+      ? `The stop work order for your booking ${booking.bookingNo} has been resolved. Operations may resume.`
+      : `A stop work order for your booking ${booking.bookingNo} has been resolved, but ${remainingActiveOrders} order(s) remain active. Operations are still halted.`
+
     for (const clientUser of clientUsers) {
       await sendNotification({
         userId: clientUser.id,
         subject: `Stop Work Order Resolved - Booking ${booking.bookingNo}`,
-        body: `The stop work order for your booking ${booking.bookingNo} has been resolved. Operations may resume.`,
+        body: clientNotifyBody,
       })
     }
 

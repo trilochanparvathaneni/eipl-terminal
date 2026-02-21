@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
     if (user!.role !== Role.SUPER_ADMIN) {
       const terminalAccessError = enforceTerminalAccess(user!, user!.terminalId)
       if (terminalAccessError) return terminalAccessError
-      where.actor = { terminalId: user!.terminalId! }
+      // Filter on the immutable terminalId stamped at write time — not the actor's current terminal
+      where.terminalId = user!.terminalId
     }
 
     if (entityType) where.entityType = entityType

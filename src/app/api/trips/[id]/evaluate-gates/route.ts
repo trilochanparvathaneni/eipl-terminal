@@ -76,6 +76,7 @@ export async function POST(
     })
 
     const missingDocs: string[] = []
+    const expiredDocs: string[] = []
 
     for (const docType of mandatoryDocTypes) {
       const verifiedDoc = await prisma.documentRecord.findFirst({
@@ -85,18 +86,21 @@ export async function POST(
           linkId: bookingId,
           verificationStatus: "VERIFIED",
         },
+        select: { id: true, expiryDate: true },
       })
 
       if (!verifiedDoc) {
         missingDocs.push(docType.name)
+      } else if (verifiedDoc.expiryDate && verifiedDoc.expiryDate < now) {
+        expiredDocs.push(docType.name)
       }
     }
 
-    const documentsPassed = missingDocs.length === 0
-    const documentsReason =
-      missingDocs.length > 0
-        ? `Missing verified documents: ${missingDocs.join(", ")}.`
-        : null
+    const documentsPassed = missingDocs.length === 0 && expiredDocs.length === 0
+    const documentsReasonParts: string[] = []
+    if (missingDocs.length > 0) documentsReasonParts.push(`Missing verified documents: ${missingDocs.join(", ")}`)
+    if (expiredDocs.length > 0) documentsReasonParts.push(`Expired documents: ${expiredDocs.join(", ")}`)
+    const documentsReason = documentsReasonParts.length > 0 ? documentsReasonParts.join(". ") + "." : null
 
     // ── STOP_WORK gate ───────────────────────────────────────────────────
     // Check that no active StopWorkOrder exists for the booking
@@ -138,6 +142,7 @@ export async function POST(
           detailsJson: {
             mandatoryDocTypes: mandatoryDocTypes.map((d) => d.name),
             missingDocs,
+            expiredDocs,
           },
           evaluatedByUserId: ctx.user.id,
           evaluatedAt: now,

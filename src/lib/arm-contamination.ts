@@ -89,6 +89,24 @@ export async function validateArmAssignment(
     }
   }
 
+  // Enforce minimum clearance time since last changeover
+  if (compat.minClearanceMinutes > 0 && arm.lastChangeoverAt) {
+    const clearanceDeadline = new Date(
+      arm.lastChangeoverAt.getTime() + compat.minClearanceMinutes * 60_000
+    )
+    const now = new Date()
+    if (now < clearanceDeadline) {
+      const remainingMs = clearanceDeadline.getTime() - now.getTime()
+      const remainingMins = Math.ceil(remainingMs / 60_000)
+      return {
+        valid: false,
+        reason: `Arm ${arm.armNo} requires ${compat.minClearanceMinutes} min clearance after last changeover. ${remainingMins} min remaining.`,
+        requiresChangeover: true,
+        compatibilityNotes: compat.notes ?? undefined,
+      }
+    }
+  }
+
   return {
     valid: true,
     requiresChangeover: true,
@@ -156,15 +174,25 @@ export async function findMatchingArms(productId: string) {
         },
       })
       if (compat?.isCompatible) {
-        matches.push({
-          armId: arm.id,
-          armNo: arm.armNo,
-          bayId: arm.bayId,
-          bayCode: arm.bay.uniqueCode,
-          gantryName: arm.bay.gantry.name,
-          currentProductName: arm.currentProduct?.name ?? null,
-          matchType: 'changeover_possible',
-        })
+        // Exclude arms still within the mandatory clearance window
+        const now = new Date()
+        const clearanceOk =
+          !compat.minClearanceMinutes ||
+          !arm.lastChangeoverAt ||
+          now >=
+            new Date(arm.lastChangeoverAt.getTime() + compat.minClearanceMinutes * 60_000)
+
+        if (clearanceOk) {
+          matches.push({
+            armId: arm.id,
+            armNo: arm.armNo,
+            bayId: arm.bayId,
+            bayCode: arm.bay.uniqueCode,
+            gantryName: arm.bay.gantry.name,
+            currentProductName: arm.currentProduct?.name ?? null,
+            matchType: 'changeover_possible',
+          })
+        }
       }
     }
   }

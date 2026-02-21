@@ -29,9 +29,15 @@ function resolveOrgSlug(user: SessionUser): string | null {
   return null
 }
 
+/** External roles (CLIENT, TRANSPORTER) may only read documents marked ORG_ONLY. */
+function isExternalUser(user: SessionUser): boolean {
+  return user.role === Role.CLIENT || user.role === Role.TRANSPORTER
+}
+
 /**
  * Semantic vector search over KnowledgeChunks using pgvector cosine distance.
- * Scoped to the user's org — no cross-org leakage.
+ * Scoped to the user's org. External users are further restricted to
+ * documents with permissions = 'ORG_ONLY' (not INTERNAL_ONLY).
  */
 export async function searchKnowledgeVector(
   query: string,
@@ -46,6 +52,11 @@ export async function searchKnowledgeVector(
   // Embed the query
   const queryVec = await embedText(query)
   const vecLiteral = embeddingToSql(queryVec)
+
+  // External users can only see ORG_ONLY documents
+  const permissionsFilter = isExternalUser(user)
+    ? `AND kd.permissions = 'ORG_ONLY'`
+    : ""
 
   // pgvector cosine distance operator: <=>
   const rows = await prisma.$queryRawUnsafe<
@@ -69,6 +80,7 @@ export async function searchKnowledgeVector(
      JOIN "KnowledgeDocument" kd ON kd.id = kc."documentId"
      WHERE kc."orgSlug" = $2
        AND kc.embedding IS NOT NULL
+       ${permissionsFilter}
      ORDER BY distance ASC
      LIMIT $3`,
     vecLiteral,

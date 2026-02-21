@@ -3,6 +3,7 @@ import { P } from "@/lib/auth/permissions"
 import { prisma } from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
 import { CustodyStage } from "@prisma/client"
+import { reconcileBayStatuses } from "@/lib/bay-reconcile"
 
 /**
  * POST /api/trips/:id/transition-stage
@@ -139,6 +140,21 @@ export async function POST(
         actorUserId: ctx.user.id,
       },
     })
+
+    // Reconcile bay statuses after any custody stage change that could
+    // affect occupancy (LOADING_STARTED, EXITED, CUSTODY_TRANSFERRED, etc.)
+    const occupancyAffectingStages = new Set([
+      CustodyStage.LOADING_STARTED,
+      CustodyStage.LOADING_COMPLETED,
+      CustodyStage.WEIGH_OUT,
+      CustodyStage.SEALED,
+      CustodyStage.CUSTODY_TRANSFERRED,
+      CustodyStage.EXITED,
+    ])
+    if (occupancyAffectingStages.has(targetStage as CustodyStage)) {
+      // Fire-and-forget; do not fail the request if reconciliation errors
+      reconcileBayStatuses().catch(() => undefined)
+    }
 
     return NextResponse.json({
       requestId: ctx.requestId,

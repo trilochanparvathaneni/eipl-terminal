@@ -6,6 +6,7 @@ import { createAuditLog } from '@/lib/audit'
 import { notifyByRole, sendNotification } from '@/lib/notifications'
 import { Role, BookingStatus } from '@prisma/client'
 import { enforceTerminalAccess } from '@/lib/auth/scope'
+import { apiRateLimit, RATE_LIMITS } from '@/lib/api-rate-limiter'
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(
@@ -70,6 +71,14 @@ export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(Role.HSE_OFFICER, Role.SUPER_ADMIN)
   if (error) return error
 
+  const { allowed, retryAfterMs } = apiRateLimit(user!.id, 'safety:stop-work', RATE_LIMITS.safety.maxRequests, RATE_LIMITS.safety.windowMs)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait before retrying.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 0) / 1000)) } }
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()
@@ -128,6 +137,7 @@ export async function POST(req: NextRequest) {
 
     await createAuditLog({
       actorUserId: user!.id,
+      terminalId: booking.terminalId,
       entityType: 'StopWorkOrder',
       entityId: stopWorkOrder.id,
       action: 'CREATE',

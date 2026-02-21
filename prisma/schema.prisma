@@ -310,6 +310,11 @@ model Terminal {
   name     String
   location String
 
+  /// Maximum trucks allowed inside the yard simultaneously (used by forecast engine)
+  insideYardLimit   Int @default(8)
+  /// Maximum trucks allowed in the outside queue simultaneously (used by forecast engine)
+  outsideQueueLimit Int @default(15)
+
   gantries  Gantry[]
   timeSlots TimeSlot[]
   bookings  Booking[]
@@ -767,6 +772,8 @@ model Notification {
 model AuditLog {
   id          String   @id @default(cuid())
   actorUserId String
+  /// Immutable terminal scope stamped at write time. Null for SUPER_ADMIN global actions.
+  terminalId  String?
   entityType  String
   entityId    String
   action      String
@@ -781,6 +788,7 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorUserId])
   @@index([createdAt])
+  @@index([terminalId])
 }
 
 // ── Communications Enums ─────────────────────────────────────────────────────
