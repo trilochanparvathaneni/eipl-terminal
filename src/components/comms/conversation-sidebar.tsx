@@ -19,10 +19,10 @@ interface Conversation {
 }
 
 const CONTEXT_PILL: Record<ConvContextType, string> = {
-  BOOKING:     "bg-blue-100 text-blue-700",
-  CLIENT:      "bg-green-100 text-green-700",
-  TRANSPORTER: "bg-amber-100 text-amber-700",
-  INCIDENT:    "bg-red-100 text-red-700",
+  BOOKING:     "bg-sky-500/20 text-sky-200",
+  CLIENT:      "bg-emerald-500/20 text-emerald-200",
+  TRANSPORTER: "bg-amber-500/20 text-amber-200",
+  INCIDENT:    "bg-red-500/20 text-red-200",
 }
 
 interface ConversationSidebarProps {
@@ -80,12 +80,12 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 border-b flex items-center justify-between">
-        <h2 className="font-semibold text-sm">Conversations</h2>
+      <div className="flex items-center justify-between border-b border-border p-3">
+        <h2 className="text-sm font-semibold text-foreground">Conversations</h2>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 text-foreground"
           onClick={() => setDialogOpen(true)}
           title="New conversation"
         >
@@ -95,13 +95,13 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {loading && (
-          <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
+          <p className="py-4 text-center text-xs text-muted-foreground">Loading...</p>
         )}
         {!loading && conversations.length === 0 && (
           <div className="text-center py-8 space-y-2">
-            <MessageSquare className="h-8 w-8 mx-auto text-muted-foreground" />
+            <MessageSquare className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">No conversations yet</p>
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
+            <Button variant="default" size="sm" onClick={() => setDialogOpen(true)}>
               Start one
             </Button>
           </div>
@@ -111,10 +111,10 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
             key={conv.id}
             type="button"
             className={cn(
-              "w-full text-left rounded-md px-3 py-2.5 transition-colors",
+              "w-full rounded-md px-3 py-2.5 text-left transition-all duration-300 ease-in-out",
               activeId === conv.id
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent text-foreground"
+                ? "bg-white/[0.12] text-slate-50"
+                : "text-slate-200 hover:bg-white/[0.06]"
             )}
             onClick={() => handleSelect(conv.id)}
           >
@@ -127,7 +127,7 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                     className={cn(
                       "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
                       activeId === conv.id
-                        ? "bg-white/20 text-white"
+                        ? "bg-white/20 text-slate-50"
                         : CONTEXT_PILL[conv.contextType]
                     )}
                     title={conv.contextLabel ?? conv.contextType}
@@ -139,9 +139,9 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full",
                     conv.audience === "INTERNAL_ONLY"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-amber-100 text-amber-700",
-                    activeId === conv.id && "bg-white/20 text-white"
+                      ? "bg-sky-500/20 text-sky-200"
+                      : "bg-amber-500/20 text-amber-200",
+                    activeId === conv.id && "bg-white/20 text-slate-50"
                   )}
                 >
                   {conv.audience === "INTERNAL_ONLY" ? "Internal" : "Mixed"}
@@ -151,8 +151,8 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                     className={cn(
                       "min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1",
                       activeId === conv.id
-                        ? "bg-white text-primary"
-                        : "bg-primary text-primary-foreground"
+                        ? "bg-white text-slate-900"
+                        : "bg-white/90 text-slate-900"
                     )}
                   >
                     {unreadCounts[conv.id] > 99 ? "99+" : unreadCounts[conv.id]}

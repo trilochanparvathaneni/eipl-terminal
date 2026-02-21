@@ -33,9 +33,9 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
      * then we add back exactly the header height as top padding.
      * overflow-hidden on the wrapper keeps all scrolling contained within panels.
      */
-    <div className="-m-4 lg:-m-8 -mt-16 lg:-mt-20 pt-14 flex h-screen overflow-hidden">
+    <div className="-m-4 -mt-16 flex h-screen overflow-hidden bg-background pt-14 text-foreground lg:-m-8 lg:-mt-20">
       {/* Left panel — Conversation list */}
-      <div className="w-56 lg:w-64 shrink-0 border-r bg-background flex flex-col">
+      <div className="z-10 flex w-56 shrink-0 flex-col border-r border-border bg-card text-card-foreground lg:w-64">
         <ConversationSidebar
           activeId={activeConvId}
           onSelect={setActiveConvId}
@@ -46,7 +46,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {activeConvId ? (
           <>
-            <div className="border-b p-2 flex items-center justify-end gap-2 bg-background">
+            <div className="flex items-center justify-end gap-2 border-b border-border bg-card p-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -77,9 +77,9 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
-              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground" />
-              <h2 className="font-semibold text-lg inline-flex items-center gap-1.5">Communications <HelpTooltip description="What it is: Messaging workspace by conversation. Why it matters: Keeps coordination and decisions in one place." /></h2>
-              <p className="text-sm text-muted-foreground max-w-xs">
+              <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold">Communications <HelpTooltip description="Messaging workspace for operation coordination." /></h2>
+              <p className="max-w-xs text-sm text-muted-foreground">
                 Select a conversation from the sidebar or create a new one to get started.
               </p>
             </div>
@@ -89,7 +89,7 @@ export function CommsPageClient({ currentUserId }: CommsPageClientProps) {
 
       {/* Right panel — Task panel */}
       {taskPanelOpen && activeConvId && (
-        <div className="w-72 flex-shrink-0 border-l bg-background flex flex-col">
+        <div className="z-10 flex w-72 flex-shrink-0 flex-col border-l border-border bg-card text-card-foreground">
           <TaskPanel
             conversationId={activeConvId}
             prefillMessageId={pendingTaskMessageId}
