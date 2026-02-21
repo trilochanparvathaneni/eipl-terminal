@@ -59,36 +59,37 @@ export async function POST(
     const isLastActiveOrder = remainingActiveOrders === 0
 
     // Resolve the stop work order; only restore booking status if no other active orders remain
-    const ops: Parameters<typeof prisma.$transaction>[0] = [
-      prisma.stopWorkOrder.update({
-        where: { id },
-        data: {
-          active: false,
-          resolvedAt: now,
-        },
-        include: {
-          booking: {
-            include: {
-              client: true,
-              product: true,
-              terminal: true,
-            },
+    const resolveUpdate = prisma.stopWorkOrder.update({
+      where: { id },
+      data: {
+        active: false,
+        resolvedAt: now,
+      },
+      include: {
+        booking: {
+          include: {
+            client: true,
+            product: true,
+            terminal: true,
           },
-          issuedBy: { select: { id: true, name: true, email: true } },
         },
-      }),
-    ]
+        issuedBy: { select: { id: true, name: true, email: true } },
+      },
+    })
+
+    let resolved: Awaited<typeof resolveUpdate>
 
     if (isLastActiveOrder) {
-      ops.push(
+      ;[resolved] = await prisma.$transaction([
+        resolveUpdate,
         prisma.booking.update({
           where: { id: stopWorkOrder.bookingId },
           data: { status: BookingStatus.OPS_SCHEDULED },
-        })
-      )
+        }),
+      ])
+    } else {
+      resolved = await resolveUpdate
     }
-
-    const [resolved] = await prisma.$transaction(ops)
 
     await createAuditLog({
       actorUserId: user!.id,
