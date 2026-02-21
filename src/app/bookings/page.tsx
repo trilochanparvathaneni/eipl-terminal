@@ -96,11 +96,11 @@ export default function BookingsPage() {
 
   const statCards = [
     { label: "Total", value: stats?.total ?? 0, icon: Package, color: "text-foreground" },
-    { label: "Pending", value: (stats?.byStatus?.SUBMITTED ?? 0) + (stats?.byStatus?.CLIENT_APPROVED ?? 0), icon: Clock, color: "text-blue-600" },
-    { label: "Scheduled", value: stats?.byStatus?.OPS_SCHEDULED ?? 0, icon: CalendarCheck, color: "text-purple-600" },
-    { label: "In Progress", value: (stats?.byStatus?.IN_TERMINAL ?? 0) + (stats?.byStatus?.LOADED ?? 0) + (stats?.byStatus?.ARRIVED_GATE ?? 0), icon: Truck, color: "text-amber-600" },
-    { label: "Completed", value: (stats?.byStatus?.EXITED ?? 0) + (stats?.byStatus?.CLOSED ?? 0), icon: CheckCircle, color: "text-green-600" },
-    { label: "Cancelled", value: (stats?.byStatus?.CANCELLED ?? 0) + (stats?.byStatus?.REJECTED ?? 0), icon: XCircle, color: "text-red-600" },
+    { label: "Pending", value: (stats?.byStatus?.SUBMITTED ?? 0) + (stats?.byStatus?.CLIENT_APPROVED ?? 0), icon: Clock, color: "text-sky-700" },
+    { label: "Scheduled", value: stats?.byStatus?.OPS_SCHEDULED ?? 0, icon: CalendarCheck, color: "text-violet-700" },
+    { label: "In Progress", value: (stats?.byStatus?.IN_TERMINAL ?? 0) + (stats?.byStatus?.LOADED ?? 0) + (stats?.byStatus?.ARRIVED_GATE ?? 0), icon: Truck, color: "text-amber-700" },
+    { label: "Completed", value: (stats?.byStatus?.EXITED ?? 0) + (stats?.byStatus?.CLOSED ?? 0), icon: CheckCircle, color: "text-emerald-700" },
+    { label: "Cancelled", value: (stats?.byStatus?.CANCELLED ?? 0) + (stats?.byStatus?.REJECTED ?? 0), icon: XCircle, color: "text-red-700" },
   ]
 
   return (
@@ -124,7 +124,7 @@ export default function BookingsPage() {
             <CardContent className="pt-4 pb-3 px-4">
               <div className="flex items-center gap-2">
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                <span className="text-sm text-muted-foreground">{stat.label}</span>
+                <span className="text-sm text-slate-400">{stat.label}</span>
               </div>
               <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
             </CardContent>
@@ -137,7 +137,7 @@ export default function BookingsPage() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search booking number..."
                 title="Search by booking number to quickly find one record."
@@ -233,9 +233,9 @@ export default function BookingsPage() {
               {/* Empty State */}
               {(!data?.bookings || data.bookings.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-12 px-4">
-                  <Package className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground mb-1">No bookings found</p>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <Package className="mb-4 h-12 w-12 text-slate-500" />
+                  <p className="mb-1 text-lg font-medium text-slate-700">No bookings found</p>
+                  <p className="mb-4 text-sm text-slate-400">
                     {hasFilters ? "Try adjusting your filters" : "Get started by creating your first booking"}
                   </p>
                   {hasFilters ? (
@@ -250,8 +250,8 @@ export default function BookingsPage() {
 
               {/* Pagination */}
               {data?.total > 0 && (
-                <div className="flex items-center justify-between p-4 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between border-t border-slate-200 p-4">
+                  <p className="text-sm text-slate-400">
                     Showing {((page - 1) * 15) + 1}-{Math.min(page * 15, data.total)} of {data.total}
                   </p>
                   <div className="flex gap-2">

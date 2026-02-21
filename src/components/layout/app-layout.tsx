@@ -20,6 +20,7 @@ import { GlobalSearch } from "./global-search"
 import { ProductTour } from "@/components/onboarding/product-tour"
 import { useProductTour } from "@/hooks/use-product-tour"
 import { cn } from "@/lib/utils"
+import { DisplayArea } from "@/components/layout/display-area"
 
 function getUserInitials(name?: string | null): string {
   if (!name) return "?"
@@ -88,7 +89,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center text-slate-50">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
       </div>
     )
@@ -105,10 +106,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const initials = getUserInitials(userName)
   const pageLabel = getPageLabel(pathname)
   const sidebarWidth = sidebarCollapsed ? "lg:w-20" : "lg:w-64"
-  const mainOffset = sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"
+  const mainOffset = sidebarCollapsed ? "lg:pl-28" : "lg:pl-72"
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <Sidebar
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -116,30 +117,30 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
       />
 
-      <header className="fixed left-0 right-0 top-0 z-30 border-b border-slate-200 bg-white/95 shadow-[0_2px_8px_rgba(15,23,42,0.05)] backdrop-blur">
+      <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/10 bg-[#0f172a]/85 shadow-[0_16px_40px_-30px_rgba(2,6,23,0.9)] backdrop-blur-[14px]">
         <div className="flex h-14 items-stretch">
-          <div className={cn("hidden shrink-0 items-center border-r border-slate-200 px-4 lg:flex", sidebarWidth)}>
+          <div className={cn("hidden shrink-0 items-center border-r border-white/10 px-4 lg:flex", sidebarWidth)}>
             {!sidebarCollapsed ? (
               <div className="flex min-w-0 items-center gap-1.5">
                 <span className="shrink-0 text-xs font-medium text-slate-400">Terminal Ops</span>
-                <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
-                <span className="truncate text-sm font-semibold text-slate-700">{pageLabel}</span>
+                <ChevronRight className="h-3 w-3 shrink-0 text-slate-500" />
+                <span className="truncate text-sm font-semibold text-slate-100">{pageLabel}</span>
               </div>
             ) : (
-              <span className="mx-auto text-[11px] font-semibold uppercase tracking-wide text-slate-400">Ops</span>
+              <span className="mx-auto text-[11px] font-semibold uppercase tracking-wide text-slate-300">Ops</span>
             )}
           </div>
 
           <div className="flex flex-1 items-center gap-4 px-4 lg:gap-6 lg:px-8">
             <button
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-slate-200 transition-all duration-300 ease-in-out hover:bg-white/[0.08] hover:text-slate-50 lg:hidden"
               onClick={() => setMobileSidebarOpen((v) => !v)}
               aria-label="Toggle navigation"
             >
               <Menu className="h-4 w-4" />
             </button>
 
-            <div className="hidden flex-1 justify-center px-8 xl:px-16 md:flex">
+            <div className="hidden min-w-0 flex-1 justify-center px-4 lg:px-8 xl:px-16 md:flex">
               {role && <GlobalSearch ref={searchRef} role={role} onTour={resetTour} />}
             </div>
 
@@ -151,7 +152,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700 transition-all hover:bg-blue-200 hover:ring-2 hover:ring-blue-300 hover:ring-offset-1"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/[0.05] text-sm font-semibold text-slate-100 transition-all duration-300 ease-in-out hover:bg-white/[0.1] hover:ring-2 hover:ring-white/25 hover:ring-offset-1 hover:ring-offset-slate-900/70"
                     data-tour="profile"
                     title={userName}
                   >
@@ -200,8 +201,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className={cn("overflow-x-hidden", mainOffset)}>
-        <div className="p-4 pb-6 pt-16 lg:p-8 lg:pt-20">{children}</div>
+      <main className={cn("overflow-x-hidden pt-16 lg:pt-20", mainOffset)}>
+        <DisplayArea>{children}</DisplayArea>
       </main>
 
       <div data-tour="chatbot">
