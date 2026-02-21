@@ -1,0 +1,82 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getSessionUser } from "@/lib/auth-utils"
+import { hasPermission } from "@/lib/rbac"
+import { TOOL_REGISTRY } from "@/lib/copilot/tool-registry"
+import { buildErrorResponse, buildOpsResponse, type CopilotMessage } from "@/lib/copilot/response-builder"
+
+interface ChatOpsBody {
+  toolId?: string
+  extractedParams?: Record<string, string>
+}
+
+function withParams(endpoint: string, params?: Record<string, string>): string {
+  if (!params || Object.keys(params).length === 0) return endpoint
+  const qp = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v && v.trim()) qp.set(k, v)
+  }
+  const query = qp.toString()
+  if (!query) return endpoint
+  return `${endpoint}${endpoint.includes("?") ? "&" : "?"}${query}`
+}
+
+export async function POST(request: NextRequest) {
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json(buildErrorResponse("Unauthorized"), { status: 401 })
+  }
+
+  let body: ChatOpsBody = {}
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json(buildErrorResponse("Invalid request payload"), { status: 400 })
+  }
+
+  const toolId = body.toolId?.trim()
+  if (!toolId) {
+    return NextResponse.json(buildErrorResponse("Missing tool id"), { status: 400 })
+  }
+
+  const tool = TOOL_REGISTRY[toolId]
+  if (!tool || !tool.integrated) {
+    return NextResponse.json(buildErrorResponse("Requested assistant capability is not available yet"), { status: 404 })
+  }
+
+  if (!hasPermission(user.role, tool.requiredPermission)) {
+    return NextResponse.json(
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        sender: "bot",
+        text: "You don't have access to this data. Contact your administrator if you believe this is an error.",
+        error: `Permission denied for ${toolId}`,
+      } satisfies CopilotMessage,
+      { status: 403 }
+    )
+  }
+
+  try {
+    // Keep calls internal and authenticated by forwarding cookies.
+    if (tool.method === "POST") {
+      const formatted = tool.formatResponse({})
+      return NextResponse.json(buildOpsResponse(formatted))
+    }
+
+    const endpoint = withParams(tool.endpoint, body.extractedParams)
+    const upstream = await fetch(new URL(endpoint, request.nextUrl.origin), {
+      method: "GET",
+      headers: { cookie: request.headers.get("cookie") ?? "" },
+      cache: "no-store",
+    })
+
+    if (!upstream.ok) {
+      return NextResponse.json(buildErrorResponse("Assistant could not fetch the requested data"), { status: upstream.status })
+    }
+
+    const data = await upstream.json()
+    const formatted = tool.formatResponse(data)
+    return NextResponse.json(buildOpsResponse(formatted))
+  } catch {
+    return NextResponse.json(buildErrorResponse("Assistant is temporarily unavailable. Please try again."), { status: 500 })
+  }
+}
