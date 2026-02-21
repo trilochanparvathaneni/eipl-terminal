@@ -143,7 +143,7 @@ export async function POST(
 
     // Reconcile bay statuses after any custody stage change that could
     // affect occupancy (LOADING_STARTED, EXITED, CUSTODY_TRANSFERRED, etc.)
-    const occupancyAffectingStages = new Set([
+    const occupancyAffectingStages = new Set<CustodyStage>([
       CustodyStage.LOADING_STARTED,
       CustodyStage.LOADING_COMPLETED,
       CustodyStage.WEIGH_OUT,
