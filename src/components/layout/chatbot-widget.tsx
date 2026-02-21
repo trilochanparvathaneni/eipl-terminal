@@ -35,11 +35,37 @@ const SUGGESTED_CHIPS = [
   "Open dashboard",
 ]
 
+const CHAT_REQUEST_TIMEOUT_MS = 12000
+const CHAT_MAX_RETRIES = 2
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   if (diff < 60_000) return "just now"
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
   return `${Math.floor(diff / 3_600_000)}h ago`
+}
+
+function getRecommendedActionTarget(text: string): ChatAction | null {
+  const t = text.toLowerCase()
+  if (t.includes("hse") || t.includes("safety") || t.includes("incident") || t.includes("stop-work")) {
+    return { id: "rec-hse", label: text, href: "/hse" }
+  }
+  if (t.includes("dashboard")) {
+    return { id: "rec-dashboard", label: text, href: "/dashboard" }
+  }
+  if (t.includes("controller") || t.includes("bay assignment")) {
+    return { id: "rec-controller", label: text, href: "/controller/console" }
+  }
+  if (t.includes("booking")) {
+    return { id: "rec-bookings", label: text, href: "/bookings" }
+  }
+  if (t.includes("report")) {
+    return { id: "rec-reports", label: text, href: "/reports" }
+  }
+  if (t.includes("gate")) {
+    return { id: "rec-gate", label: text, href: "/security/gate" }
+  }
+  return null
 }
 
 export function ChatbotWidget({ role }: { role: ChatRole }) {
@@ -50,7 +76,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     {
       id: makeId(),
       sender: "bot",
-      text: "Hi! I'm the EIPL Ops Digital Twin. Ask me about metrics, safety, or navigate the app.",
+      text: "Hi! I'm EIPL Assist. Ask me about metrics, safety, or navigation.",
     },
   ])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -118,6 +144,44 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     return null
   }, [navItems])
 
+  const requestOpsResponse = useCallback(
+    async (toolId: string, extractedParams: Record<string, string>) => {
+      let lastError: Error | null = null
+
+      for (let attempt = 0; attempt <= CHAT_MAX_RETRIES; attempt += 1) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
+
+        try {
+          const res = await fetch("/api/chat/ops", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toolId, extractedParams }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+
+          if (!res.ok) {
+            const payload = await res.json().catch(() => null)
+            const message = payload?.text || payload?.error || `Assistant request failed (${res.status})`
+            throw new Error(message)
+          }
+
+          return (await res.json()) as CopilotMessage
+        } catch (err) {
+          clearTimeout(timeout)
+          lastError = err instanceof Error ? err : new Error("Unknown assistant error")
+          if (attempt < CHAT_MAX_RETRIES) {
+            await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
+          }
+        }
+      }
+
+      throw lastError ?? new Error("Assistant request failed")
+    },
+    []
+  )
+
   const handleMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed) return
@@ -177,16 +241,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     ])
 
     try {
-      const res = await fetch("/api/chat/ops", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toolId: intent.toolId,
-          extractedParams: intent.extractedParams,
-        }),
-      })
-
-      const data: CopilotMessage = await res.json()
+      const data = await requestOpsResponse(intent.toolId, intent.extractedParams)
 
       // Replace loading message with response
       setMessages((prev) =>
@@ -201,22 +256,26 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
             : m
         )
       )
-    } catch {
+    } catch (err) {
+      const errorText =
+        err instanceof Error && err.name === "AbortError"
+          ? "EIPL Assist timed out. Retrying usually resolves this."
+          : "EIPL Assist is temporarily unavailable. Please try again."
       setMessages((prev) =>
         prev.map((m) =>
           m.id === loadingId
             ? {
                 id: loadingId,
                 sender: "bot" as const,
-                text: "Something went wrong. Please check your connection and try again.",
-                error: "Network error",
+                text: errorText,
+                error: errorText,
                 isLoading: false,
               }
             : m
         )
       )
     }
-  }, [role, navItems, getNavReply])
+  }, [role, navItems, getNavReply, requestOpsResponse])
 
   function handleChip(chip: string) {
     handleMessage(chip)
@@ -227,39 +286,39 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-colors hover:bg-indigo-700"
+        className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-[#0f172a] text-slate-100 shadow-xl transition-all duration-300 ease-in-out hover:bg-[#1e293b]"
         aria-label="Open assistant"
       >
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
       </button>
 
       {open && (
-        <div className="fixed bottom-20 right-5 z-50 w-[calc(100vw-2.5rem)] max-w-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="fixed inset-x-5 bottom-20 z-[70] flex max-h-[calc(100vh-6.5rem)] w-auto flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900/95 shadow-2xl backdrop-blur-md sm:left-auto sm:right-5 sm:w-[360px]">
           {/* Header */}
-          <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2.5">
-            <Bot className="h-4 w-4 text-indigo-600" />
+          <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <Bot className="h-4 w-4 text-sky-300" />
             <div>
-              <p className="text-sm font-semibold text-slate-800">EIPL Ops Digital Twin</p>
-              <p className="text-xs text-slate-500">Metrics, safety, and navigation</p>
+              <p className="text-sm font-semibold text-slate-100">EIPL Assist</p>
+              <p className="text-xs text-slate-400">Your operational assistant for metrics and safety.</p>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="max-h-[360px] space-y-3 overflow-y-auto px-3 py-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
             {messages.map((message, idx) => (
               <div key={message.id}>
                 {/* Message bubble */}
                 <div
                   className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
                     message.sender === "user"
-                      ? "ml-auto bg-indigo-600 text-white"
-                      : "bg-slate-100 text-slate-700"
+                      ? "ml-auto bg-white/15 text-slate-50"
+                      : "bg-white/[0.06] text-slate-100"
                   }`}
                 >
                   {message.isLoading ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span className="text-slate-500">Fetching data...</span>
+                      <span className="text-slate-400">Fetching data...</span>
                     </div>
                   ) : (
                     <>
@@ -272,7 +331,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
 
                       {/* Breakdown */}
                       {message.breakdown && message.breakdown.length > 0 && (
-                        <ul className="mt-2 space-y-0.5 text-xs text-slate-600">
+                        <ul className="mt-2 space-y-0.5 text-xs text-slate-300">
                           {message.breakdown.map((line, i) => (
                             <li key={i} className={line.startsWith("•") || line.startsWith("  ") ? "ml-2" : ""}>
                               {line || "\u00A0"}
@@ -283,16 +342,34 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
 
                       {/* Recommended Actions */}
                       {message.recommendedActions && message.recommendedActions.length > 0 && (
-                        <div className="mt-2 border-t border-slate-200 pt-1.5">
+                        <div className="mt-2 border-t border-white/10 pt-1.5">
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                             Recommended
                           </p>
-                          <ul className="mt-0.5 space-y-0.5 text-xs text-indigo-700">
+                          <ul className="mt-1 space-y-1 text-xs">
                             {message.recommendedActions.map((action, i) => (
-                              <li key={i} className="flex items-start gap-1">
-                                <ArrowRight className="mt-0.5 h-3 w-3 shrink-0" />
-                                <span>{action}</span>
-                              </li>
+                              (() => {
+                                const mappedAction = getRecommendedActionTarget(action)
+                                return (
+                                  <li key={i}>
+                                    {mappedAction ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => runAction(mappedAction)}
+                                        className="flex w-full items-start gap-1 rounded-md border border-sky-400/30 bg-sky-500/10 px-2 py-1 text-left text-sky-200 transition-all duration-300 ease-in-out hover:bg-sky-500/20"
+                                      >
+                                        <ArrowRight className="mt-0.5 h-3 w-3 shrink-0" />
+                                        <span>{action}</span>
+                                      </button>
+                                    ) : (
+                                      <div className="flex items-start gap-1 text-slate-300">
+                                        <ArrowRight className="mt-0.5 h-3 w-3 shrink-0" />
+                                        <span>{action}</span>
+                                      </div>
+                                    )}
+                                  </li>
+                                )
+                              })()
                             ))}
                           </ul>
                         </div>
@@ -317,7 +394,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                         key={action.id}
                         type="button"
                         onClick={() => runAction(action)}
-                        className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-all duration-300 ease-in-out hover:bg-white/[0.1]"
                       >
                         {action.label}
                       </button>
@@ -333,7 +410,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                         key={chip}
                         type="button"
                         onClick={() => handleChip(chip)}
-                        className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
+                        className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2.5 py-1 text-[11px] font-medium text-sky-200 transition-all duration-300 ease-in-out hover:bg-sky-500/25"
                       >
                         {chip}
                       </button>
@@ -346,7 +423,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-200 p-2.5">
+          <div className="border-t border-white/10 p-2.5">
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -359,12 +436,12 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                   }
                 }}
                 placeholder="Ask: metrics, safety, navigate..."
-                className="h-9 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none transition-colors focus:border-slate-300"
+                className="h-9 min-w-0 flex-1 rounded-md border border-white/15 bg-white/[0.03] px-4 text-sm text-slate-100 outline-none transition-all duration-300 ease-in-out placeholder:text-slate-400 focus:border-sky-400/70 focus:shadow-[0_0_8px_rgba(59,130,246,0.5)]"
               />
               <button
                 type="button"
                 onClick={() => handleMessage(input)}
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-600 text-white transition-colors hover:bg-indigo-700"
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-[#1e3a8a] text-white transition-all duration-300 ease-in-out hover:bg-[#1e40af]"
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
