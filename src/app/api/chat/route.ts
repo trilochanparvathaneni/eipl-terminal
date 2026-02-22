@@ -61,6 +61,49 @@ Respond ONLY in strict JSON:
 URLs must be relative internal routes only.
 `.trim()
 
+async function requestStructuredCompletion(params: {
+  openai: OpenAI
+  model: string
+  message: string
+}) {
+  return params.openai.chat.completions.create({
+    model: params.model,
+    messages: [
+      { role: "system", content: SYSTEM_INSTRUCTION },
+      { role: "user", content: params.message },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "eipl_assist_response",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            reply_text: { type: "string" },
+            urgency: { type: "string", enum: ["low", "medium", "high"] },
+            action_buttons: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  label: { type: "string" },
+                  url: { type: "string" },
+                  tooltip: { type: "string" },
+                },
+                required: ["label", "url"],
+              },
+            },
+          },
+          required: ["reply_text", "urgency", "action_buttons"],
+        },
+      },
+    },
+  })
+}
+
 async function persistChatLog(params: {
   userMessage: string
   botResponse: string
@@ -195,42 +238,27 @@ export async function POST(request: NextRequest) {
     }
 
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY })
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages: [
-        { role: "system", content: SYSTEM_INSTRUCTION },
-        { role: "user", content: parsedBody.message },
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "eipl_assist_response",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              reply_text: { type: "string" },
-              urgency: { type: "string", enum: ["low", "medium", "high"] },
-              action_buttons: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    label: { type: "string" },
-                    url: { type: "string" },
-                    tooltip: { type: "string" },
-                  },
-                  required: ["label", "url"],
-                },
-              },
-            },
-            required: ["reply_text", "urgency", "action_buttons"],
-          },
-        },
-      },
-    })
+    let completion
+    try {
+      completion = await requestStructuredCompletion({
+        openai,
+        model: OPENAI_MODEL,
+        message: parsedBody.message,
+      })
+    } catch (modelError) {
+      const errText = modelError instanceof Error ? modelError.message.toLowerCase() : ""
+      const canRetryWithDefault =
+        OPENAI_MODEL !== "gpt-4o-mini" &&
+        (errText.includes("model") || errText.includes("not found") || errText.includes("does not exist"))
+      if (!canRetryWithDefault) {
+        throw modelError
+      }
+      completion = await requestStructuredCompletion({
+        openai,
+        model: "gpt-4o-mini",
+        message: parsedBody.message,
+      })
+    }
 
     const rawText = completion.choices[0]?.message?.content
     if (!rawText) {
