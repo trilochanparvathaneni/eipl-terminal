@@ -7,6 +7,7 @@ import { Activity, Clock, Loader2, PackageCheck, ShieldCheck, Truck, XCircle } f
 import { MovementsBoard, type MovementRowUi } from "@/components/live/MovementsBoard"
 import { ExecutiveBriefingCard } from "@/components/intelligence/ExecutiveBriefingCard"
 import { shortTip } from "@/lib/ui/tooltipCopy"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 type LiveSnapshot = {
   rows: MovementRowUi[]
@@ -57,8 +58,13 @@ export default function LiveOpsPage() {
   const [updatedAt, setUpdatedAt] = useState<Date>(new Date())
 
   const role = (session?.user?.role || "CLIENT") as Role
+  const canAccessLiveOps = role !== Role.CLIENT && role !== Role.TRANSPORTER
 
   useEffect(() => {
+    if (!canAccessLiveOps) {
+      setIsLoading(false)
+      return
+    }
     let isMounted = true
 
     async function pull(initial = false) {
@@ -90,7 +96,7 @@ export default function LiveOpsPage() {
       isMounted = false
       clearInterval(intervalId)
     }
-  }, [])
+  }, [canAccessLiveOps])
 
   const metrics = snapshot?.metrics
   const kpiCards = useMemo(
@@ -119,6 +125,19 @@ export default function LiveOpsPage() {
     )
   }
 
+  if (!canAccessLiveOps) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Not authorized</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-slate-400">
+          Live Ops command panel is available to internal terminal roles only.
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -135,7 +154,7 @@ export default function LiveOpsPage() {
 
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">AI Risk Analysis</p>
-        <ExecutiveBriefingCard />
+        <ExecutiveBriefingCard role={role} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

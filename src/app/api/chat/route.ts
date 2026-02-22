@@ -5,6 +5,8 @@ import { toAssistRole } from "@/lib/assist/policy"
 import { buildBayAvailabilityResponse, buildDocumentActions } from "@/lib/assist/ops-response"
 import { getOpsSnapshot } from "@/lib/assist/snapshot"
 import { prisma } from "@/lib/prisma"
+import { getUserRole, isClientRole } from "@/lib/security/rbac"
+import { redactAssistantResponse, sanitizeForClient } from "@/lib/security/redaction"
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { z } from "zod"
@@ -125,6 +127,8 @@ export async function POST(request: NextRequest) {
   }
 
   const assistRole = toAssistRole(sessionUser.role)
+  const role = getUserRole(sessionUser)
+  const clientRole = isClientRole(role)
   const intent = detectAssistIntent(parsedBody.message)
 
   try {
@@ -149,16 +153,26 @@ export async function POST(request: NextRequest) {
         blockers: computed.blockers,
         action_buttons: computed.actions,
       }
+      const roleSafe = clientRole
+        ? {
+            ...payload,
+            ...redactAssistantResponse(role, {
+              reply_text: payload.reply_text,
+              urgency: payload.urgency,
+              action_buttons: payload.action_buttons,
+            }),
+          }
+        : payload
 
       await persistChatLog({
         userMessage: parsedBody.message,
-        botResponse: payload.reply_text,
-        urgency: payload.urgency,
+        botResponse: roleSafe.reply_text,
+        urgency: roleSafe.urgency,
         userId: sessionUser.id,
         intent,
       })
 
-      return NextResponse.json(payload, { headers: { "x-eipl-response-mode": "live" } })
+      return NextResponse.json(roleSafe, { headers: { "x-eipl-response-mode": "live" } })
     }
 
     if (intent === "document_help") {
@@ -224,11 +238,11 @@ export async function POST(request: NextRequest) {
     }
 
     const validated = responseSchema.parse(JSON.parse(rawText))
-    const payload = {
+    const payload = redactAssistantResponse(role, {
       reply_text: validated.reply_text,
       urgency: validated.urgency,
       action_buttons: safeActionButtons(validated.action_buttons),
-    } as const
+    })
 
     await persistChatLog({
       userMessage: parsedBody.message,
@@ -279,15 +293,38 @@ export async function POST(request: NextRequest) {
         action_buttons: computed.actions,
       }
     } catch {
+      payload = clientRole
+        ? {
+            reply_text: "Terminal data temporarily unavailable. Please check your bookings page.",
+            urgency: "medium",
+            action_buttons: safeActionButtons([
+              { label: "View my bookings", url: "/bookings", tooltip: "Track your booking and truck status." },
+              { label: "Upload pending documents", url: "/client/documents", tooltip: "Upload required documents." },
+              { label: "Contact support", url: "/contacts/control-room", tooltip: "Open support contacts." },
+            ]),
+          }
+        : {
+            reply_text:
+              "EIPL Assist is in fallback mode. Continue with HSE checklist, gate-in docs, and control room escalation.",
+            urgency: isQuotaIssue ? "medium" : "high",
+            action_buttons: safeActionButtons([
+              { label: "Open HSE", url: "/hse", tooltip: "Open HSE dashboard and check active controls." },
+              { label: "Contact Control Room", url: "/contacts/control-room", tooltip: "Escalate blocked movement to control room." },
+              { label: "Open Dashboard", url: "/dashboard", tooltip: "Use dashboard while AI services recover." },
+            ]),
+          }
+    }
+
+    if (clientRole) {
       payload = {
-        reply_text:
-          "EIPL Assist is in fallback mode. Continue with HSE checklist, gate-in docs, and control room escalation.",
-        urgency: isQuotaIssue ? "medium" : "high",
-        action_buttons: safeActionButtons([
-          { label: "Open HSE", url: "/hse", tooltip: "Open HSE dashboard and check active controls." },
-          { label: "Contact Control Room", url: "/contacts/control-room", tooltip: "Escalate blocked movement to control room." },
-          { label: "Open Dashboard", url: "/dashboard", tooltip: "Use dashboard while AI services recover." },
-        ]),
+        ...payload,
+        reply_text: sanitizeForClient(payload.reply_text),
+        action_buttons: redactAssistantResponse(role, {
+          reply_text: payload.reply_text,
+          urgency: payload.urgency,
+          action_buttons: payload.action_buttons,
+        }).action_buttons,
+        blockers: [],
       }
     }
 

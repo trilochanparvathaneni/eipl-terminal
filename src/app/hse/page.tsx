@@ -17,11 +17,21 @@ import { useToast } from "@/components/ui/use-toast"
 import { statusColor, formatDateTime } from "@/lib/utils"
 import { ShieldAlert, ClipboardCheck, AlertTriangle, Plus } from "lucide-react"
 import { HelpTooltip } from "@/components/ui/help-tooltip"
+import { TOOLTIP_COPY, shortTip } from "@/lib/ui/tooltipCopy"
 
 export default function HSEPage() {
   const { data: session } = useSession()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const role = (session?.user as any)?.role as string | undefined
+  const canAccessHse =
+    role === "SUPER_ADMIN" ||
+    role === "TERMINAL_ADMIN" ||
+    role === "HSE_OFFICER" ||
+    role === "SECURITY" ||
+    role === "AUDITOR" ||
+    role === "SURVEYOR" ||
+    role === "TRAFFIC_CONTROLLER"
 
   const [checklistDialog, setChecklistDialog] = useState(false)
   const [stopWorkDialog, setStopWorkDialog] = useState(false)
@@ -38,6 +48,7 @@ export default function HSEPage() {
 
   const { data: checklists } = useQuery({
     queryKey: ["checklists"],
+    enabled: canAccessHse,
     queryFn: async () => {
       const r = await fetch("/api/safety/checklists")
       const data = await r.json()
@@ -47,6 +58,7 @@ export default function HSEPage() {
 
   const { data: stopWorks } = useQuery({
     queryKey: ["stop-works"],
+    enabled: canAccessHse,
     queryFn: async () => {
       const r = await fetch("/api/safety/stop-work")
       const data = await r.json()
@@ -56,6 +68,7 @@ export default function HSEPage() {
 
   const { data: incidents } = useQuery({
     queryKey: ["incidents"],
+    enabled: canAccessHse,
     queryFn: async () => {
       const r = await fetch("/api/incidents")
       const data = await r.json()
@@ -65,6 +78,7 @@ export default function HSEPage() {
 
   const { data: bookings } = useQuery({
     queryKey: ["active-bookings-hse"],
+    enabled: canAccessHse,
     queryFn: async () => { const r = await fetch("/api/bookings?limit=50"); return r.json() },
   })
 
@@ -138,20 +152,33 @@ export default function HSEPage() {
 
   const allPassed = ppe && earthing && leakCheck && fireSystem
 
+  if (session && !canAccessHse) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Not authorized</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          You don&apos;t have access to HSE operations pages.
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold inline-flex items-center gap-1.5">
           HSE Management
-          <HelpTooltip description="What it is: Safety and compliance workspace. Why it matters: Helps prevent incidents and enforce controls." />
+          <HelpTooltip description={TOOLTIP_COPY.hseManagement} />
         </h1>
       </div>
 
       <Tabs defaultValue="checklists">
         <TabsList>
-          <TabsTrigger value="checklists"><span className="inline-flex items-center gap-1">Safety Checklists <HelpTooltip description="What it is: Pre-operation safety checks. Why it matters: Confirms readiness before work starts." /></span></TabsTrigger>
-          <TabsTrigger value="stopwork"><span className="inline-flex items-center gap-1">Stop Work Orders <HelpTooltip description="What it is: Emergency work holds. Why it matters: Prevents unsafe continuation." /></span></TabsTrigger>
-          <TabsTrigger value="incidents"><span className="inline-flex items-center gap-1">Incidents <HelpTooltip description="What it is: Logged safety events. Why it matters: Tracks risk and closure actions." /></span></TabsTrigger>
+          <TabsTrigger value="checklists"><span className="inline-flex items-center gap-1">Safety Checklists <HelpTooltip description={TOOLTIP_COPY.safetyChecklists} /></span></TabsTrigger>
+          <TabsTrigger value="stopwork"><span className="inline-flex items-center gap-1">Stop Work Orders <HelpTooltip description={TOOLTIP_COPY.stopWorkOrders} /></span></TabsTrigger>
+          <TabsTrigger value="incidents"><span className="inline-flex items-center gap-1">Incidents <HelpTooltip description={TOOLTIP_COPY.incidents} /></span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="checklists" className="space-y-3">
@@ -167,7 +194,7 @@ export default function HSEPage() {
                 </div>
                 <span className="inline-flex items-center gap-1">
                   <Badge className={statusColor(c.status)}>{c.status}</Badge>
-                  <HelpTooltip description="What it is: Checklist result. Why it matters: FAILED requires corrective action before proceeding." />
+                  <HelpTooltip description={shortTip("Checklist result. Failed items require corrective action before loading.")} />
                 </span>
               </CardContent>
             </Card>
@@ -193,7 +220,7 @@ export default function HSEPage() {
                     <Badge className={sw.active ? "bg-red-200 text-red-800" : "bg-green-100 text-green-700"}>
                       {sw.active ? "ACTIVE" : "RESOLVED"}
                     </Badge>
-                    <HelpTooltip description="What it is: Stop-work status. Why it matters: ACTIVE blocks work until resolved." />
+                    <HelpTooltip description={shortTip("Stop-work status. Active orders block operations until resolved.")} />
                   </span>
                   {sw.active && (
                     <Button size="sm" variant="outline" onClick={() => resolveStopWork.mutate(sw.id)}>Resolve</Button>
@@ -221,11 +248,11 @@ export default function HSEPage() {
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1">
                     <Badge className={statusColor(inc.severity)}>{inc.severity}</Badge>
-                    <HelpTooltip description="What it is: Incident impact level. Why it matters: High severity should be handled first." />
+                    <HelpTooltip description={shortTip("Incident impact level. High severity incidents should be handled first.")} />
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <Badge className={statusColor(inc.status)}>{inc.status}</Badge>
-                    <HelpTooltip description="What it is: Incident workflow state. Why it matters: OPEN items need follow-up and closure." />
+                    <HelpTooltip description={shortTip("Incident workflow state. Open items need follow-up and closure.")} />
                   </span>
                   {inc.status === "OPEN" && (
                     <Button size="sm" variant="outline" onClick={() => closeIncident.mutate(inc.id)}>Close</Button>
@@ -246,7 +273,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>New Safety Checklist</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description="What it is: Booking being inspected. Why it matters: Links checklist to the right trip." /></Label>
+              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description={shortTip("Booking being inspected. Links checklist to the correct trip.")} /></Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={bookingId} onChange={(e) => setBookingId(e.target.value)} required>
                 <option value="">Select booking</option>
                 {bookings?.bookings?.map((b: any) => (
@@ -255,14 +282,14 @@ export default function HSEPage() {
               </select>
             </div>
             <div className="space-y-3">
-              <p className="text-sm font-medium inline-flex items-center gap-1">Checklist Items: <HelpTooltip description="What it is: Required safety checks. Why it matters: Missing checks can fail compliance." /></p>
+              <p className="text-sm font-medium inline-flex items-center gap-1">Checklist Items: <HelpTooltip description={shortTip("Required safety checks. Missing items can fail compliance.")} /></p>
               <div className="flex items-center gap-2"><Checkbox checked={ppe} onCheckedChange={(c) => setPpe(c as boolean)} /><Label className="font-normal">PPE Verified</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={earthing} onCheckedChange={(c) => setEarthing(c as boolean)} /><Label className="font-normal">Earthing Connected</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={leakCheck} onCheckedChange={(c) => setLeakCheck(c as boolean)} /><Label className="font-normal">Leak Check Passed</Label></div>
               <div className="flex items-center gap-2"><Checkbox checked={fireSystem} onCheckedChange={(c) => setFireSystem(c as boolean)} /><Label className="font-normal">Fire System Ready</Label></div>
             </div>
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Additional Notes <HelpTooltip description="What it is: Extra context for audit trail. Why it matters: Helps explain pass/fail decisions." /></Label>
+              <Label className="inline-flex items-center gap-1">Additional Notes <HelpTooltip description={shortTip("Extra context for audit trail and pass/fail decisions.")} /></Label>
               <Textarea value={checklistNotes} onChange={(e) => setChecklistNotes(e.target.value)} />
             </div>
           </div>
@@ -288,7 +315,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>Issue Stop Work Order</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description="What it is: Booking to be halted. Why it matters: Ensures stop-work applies to correct operation." /></Label>
+              <Label className="inline-flex items-center gap-1">Booking <HelpTooltip description={shortTip("Booking to be halted. Ensures stop-work targets the right operation.")} /></Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={bookingId} onChange={(e) => setBookingId(e.target.value)} required>
                 <option value="">Select booking</option>
                 {bookings?.bookings?.map((b: any) => (
@@ -297,7 +324,7 @@ export default function HSEPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Reason * <HelpTooltip description="What it is: Safety reason for hold. Why it matters: Required for compliance and corrective action." /></Label>
+              <Label className="inline-flex items-center gap-1">Reason * <HelpTooltip description={shortTip("Safety reason for hold. Required for compliance and corrective action.")} /></Label>
               <Textarea value={stopWorkReason} onChange={(e) => setStopWorkReason(e.target.value)} placeholder="Describe the safety concern..." />
             </div>
           </div>
@@ -320,7 +347,7 @@ export default function HSEPage() {
           <DialogHeader><DialogTitle>Report Incident</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Severity <HelpTooltip description="What it is: Incident impact level. Why it matters: Guides response priority." /></Label>
+              <Label className="inline-flex items-center gap-1">Severity <HelpTooltip description={shortTip("Incident impact level. Guides response priority.")} /></Label>
               <Select value={incidentSeverity} onValueChange={setIncidentSeverity}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -331,7 +358,7 @@ export default function HSEPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="inline-flex items-center gap-1">Description * <HelpTooltip description="What it is: Incident details. Why it matters: Enables proper investigation and closure." /></Label>
+              <Label className="inline-flex items-center gap-1">Description * <HelpTooltip description={shortTip("Incident details. Enables proper investigation and closure.")} /></Label>
               <Textarea value={incidentDesc} onChange={(e) => setIncidentDesc(e.target.value)} placeholder="Describe the incident..." />
             </div>
           </div>

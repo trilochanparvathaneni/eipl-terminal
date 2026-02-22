@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 import { resolveTenant } from "@/lib/tenant/resolveTenant"
 import { TENANT_HEADER } from "@/lib/tenant/types"
 
@@ -21,6 +22,21 @@ const ALLOWED_SLUGS: ReadonlySet<string> = (() => {
   return new Set(slugs)
 })()
 
+const CLIENT_BLOCKED_PREFIXES = [
+  "/live-ops",
+  "/terminal/bays",
+  "/terminal/queue",
+  "/audit-logs",
+  "/reports",
+  "/controller",
+]
+
+function isBlockedForClient(pathname: string): boolean {
+  return CLIENT_BLOCKED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+}
+
 /**
  * Next.js Edge Middleware.
  *
@@ -31,7 +47,7 @@ const ALLOWED_SLUGS: ReadonlySet<string> = (() => {
  *   3. Forward the tenant slug as a request header so server components
  *      and route handlers can read it without re-parsing the host.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { tenantSlug, mode } = resolveTenant(
     request.headers,
     request.nextUrl.hostname
@@ -45,6 +61,23 @@ export function middleware(request: NextRequest) {
       { error: `Unknown tenant: ${tenantSlug}` },
       { status: 403 }
     )
+  }
+
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+  const role = String(token?.role || "")
+  const isClient = role === "CLIENT" || role === "TRANSPORTER"
+  const path = request.nextUrl.pathname
+  if (isClient && isBlockedForClient(path)) {
+    if (path.startsWith("/api/")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = "/dashboard"
+    redirectUrl.searchParams.set("forbidden", "1")
+    return NextResponse.redirect(redirectUrl)
   }
 
   // Clone request headers and inject tenant slug + resolution mode

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { Role } from "@prisma/client"
 import { AlertTriangle, CheckCircle2, Loader2, TrafficCone } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,10 +43,11 @@ function statusStyles(status: BriefingStatus) {
   }
 }
 
-export function ExecutiveBriefingCard() {
+export function ExecutiveBriefingCard({ role }: { role?: Role | string }) {
   const [data, setData] = useState<ExecutiveBriefing | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const isClient = role === Role.CLIENT || role === Role.TRANSPORTER
 
   useEffect(() => {
     let active = true
@@ -84,7 +86,7 @@ export function ExecutiveBriefingCard() {
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             {styles.icon}
-            Start-of-Day Executive Briefing
+            {isClient ? "Client Daily Summary" : "Start-of-Day Executive Briefing"}
           </span>
           {data && (
             <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${styles.badge}`}>

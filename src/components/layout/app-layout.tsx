@@ -36,7 +36,7 @@ function getPageLabel(pathname: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-const PUBLIC_PATHS = ["/login", "/live-ops"]
+const PUBLIC_PATHS = ["/login"]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -95,7 +95,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (pathname === "/login" || pathname === "/live-ops") {
+  if (pathname === "/login") {
     return <>{children}</>
   }
 

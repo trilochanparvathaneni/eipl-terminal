@@ -14,6 +14,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { FilterBar } from "@/components/dashboard/filter-bar"
 import { DataTableShell } from "@/components/dashboard/data-table-shell"
 import { HelpTooltip } from "@/components/ui/help-tooltip"
+import { ExecutiveBriefingCard } from "@/components/intelligence/ExecutiveBriefingCard"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 type PeriodKey = "week" | "month" | "quarter" | "year" | "ytd"
@@ -410,6 +411,8 @@ export default function DashboardPage() {
             />
           )}
         />
+
+        <ExecutiveBriefingCard role={role} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {showTop5 && <Top5Card />}
