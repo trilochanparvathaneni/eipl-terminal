@@ -422,7 +422,7 @@ export default function ReportsPage() {
         right={
           <>
             <span className="inline-flex items-center gap-1">
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700">Active filters: {activeFilterCount}</Badge>
+              <Badge variant="secondary" className="border border-white/15 bg-white/[0.04] text-slate-200">Active filters: {activeFilterCount}</Badge>
               <HelpTooltip description="What it is: Number of filters now applied. Why it matters: More filters narrow your results." label="Active filters help" />
             </span>
             <Button variant="outline" onClick={resetCurrentTabFilters} className="h-9 text-xs" title="Clear filters for the current tab only.">

@@ -225,6 +225,7 @@ model User {
   evidencePacksGenerated EvidencePack[]    @relation("EvidenceGenerator")
   chatConversations    ChatConversation[]
   formSubmissions      FormSubmission[]
+  chatLogs             ChatLog[]
 
   // Communications back-relations
   conversationsCreated    Conversation[]         @relation("ConvCreator")
@@ -867,6 +868,23 @@ model ChatMessage {
   conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+model ChatLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  userMessage String
+  botResponse String
+  urgency     String
+  intent      String?
+  isPublicFAQ Boolean  @default(false)
+  userId      String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([urgency])
+  @@index([userId])
 }
 
 model DocumentChunk {

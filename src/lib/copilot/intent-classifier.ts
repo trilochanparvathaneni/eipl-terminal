@@ -114,6 +114,10 @@ function extractParams(query: string): Record<string, string> {
   // Extract truck number
   const truckMatch = query.match(/truck\s*(?:number|no\.?|#)?\s*([A-Z0-9-]+)/i)
   if (truckMatch) params.truckNumber = truckMatch[1]
+  if (!params.truckNumber) {
+    const plateLike = query.match(/\b([A-Z]{2}\d{1,2}[A-Z]{1,3}\d{3,4})\b/i)
+    if (plateLike) params.truckNumber = plateLike[1].toUpperCase()
+  }
 
   return params
 }

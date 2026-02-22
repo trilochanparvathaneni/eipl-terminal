@@ -155,7 +155,7 @@ export default function SchedulePage() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="h-32 animate-pulse rounded-xl border border-slate-200 bg-white" />
+            <div key={idx} className="h-32 animate-pulse rounded-xl border border-white/10 bg-white/[0.06]" />
           ))}
         </div>
       ) : (
@@ -173,12 +173,12 @@ export default function SchedulePage() {
                 {slotBookings.length > 0 ? (
                   <div className="space-y-2">
                     {slotBookings.map((b: any) => (
-                      <div key={b.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 text-[13px] md:flex-row md:items-center md:justify-between">
+                      <div key={b.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[13px] md:flex-row md:items-center md:justify-between">
                         <div className="min-w-0">
-                          <Link href={`/bookings/${b.id}`} className="font-medium text-slate-900 hover:underline">{b.bookingNo}</Link>
-                          <p className="truncate text-xs text-slate-500">{b.client?.name} - {b.product?.name} ({b.quantityRequested})</p>
+                          <Link href={`/bookings/${b.id}`} className="font-medium text-slate-100 hover:underline">{b.bookingNo}</Link>
+                          <p className="truncate text-xs text-slate-400">{b.client?.name} - {b.product?.name} ({b.quantityRequested})</p>
                           {b.bayAllocations?.[0] && (
-                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-blue-700">
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-sky-300">
                               <MapPin className="h-3 w-3" /> {b.bayAllocations[0].bay.uniqueCode}
                             </span>
                           )}
@@ -203,7 +203,7 @@ export default function SchedulePage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">No bookings in this slot</p>
+                  <p className="text-xs text-slate-400">No bookings in this slot</p>
                 )}
               </SectionPanel>
             )
@@ -213,10 +213,10 @@ export default function SchedulePage() {
             <SectionPanel title={`Unscheduled (${slotGroups.unscheduledRows.length})`} collapsible>
               <div className="space-y-2">
                 {slotGroups.unscheduledRows.map((b: any) => (
-                  <div key={b.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 text-[13px] md:flex-row md:items-center md:justify-between">
+                  <div key={b.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[13px] md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
-                      <Link href={`/bookings/${b.id}`} className="font-medium text-slate-900 hover:underline">{b.bookingNo}</Link>
-                      <p className="truncate text-xs text-slate-500">{b.client?.name} - {b.product?.name} ({b.quantityRequested})</p>
+                      <Link href={`/bookings/${b.id}`} className="font-medium text-slate-100 hover:underline">{b.bookingNo}</Link>
+                      <p className="truncate text-xs text-slate-400">{b.client?.name} - {b.product?.name} ({b.quantityRequested})</p>
                       {b.isBulk && <Badge variant="secondary" className="mt-1 text-[10px]">Bulk</Badge>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ export default function SchedulePage() {
             <DialogTitle>Schedule Booking: {selectedBooking?.bookingNo}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-slate-300">
               <p>{selectedBooking?.client?.name} - {selectedBooking?.product?.name} ({selectedBooking?.quantityRequested})</p>
             </div>
             <div className="space-y-2">

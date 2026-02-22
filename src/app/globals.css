@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 214 84% 44%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 35%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 39%;
+    --accent: 210 40% 94%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 214 84% 44%;
-    --radius: 0.5rem;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 35%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222 44% 14%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 44% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 130 45% 40%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 22%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 130 45% 40%;
+    --border: 217 24% 28%;
+    --input: 217 24% 28%;
+    --ring: 210 40% 90%;
   }
 }
 
@@ -61,5 +61,88 @@
     background-color: #f8fafc;
     overflow-x: hidden;
     min-width: 320px;
+    min-height: 100vh;
+    color: #0f172a;
+    font-family: var(--font-sans), sans-serif;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -35%;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(100% 90% at 12% 4%, rgba(226, 232, 240, 0.5) 0%, rgba(241, 245, 249, 0) 58%),
+      radial-gradient(70% 65% at 92% 10%, rgba(203, 213, 225, 0.38) 0%, rgba(248, 250, 252, 0) 62%),
+      #f8fafc;
+    transform: translateZ(0);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), serif;
+    letter-spacing: 0.015em;
+  }
+}
+
+@layer components {
+  .luxury-surface {
+    @apply rounded-xl border border-slate-200 bg-white shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.05)] transition-all duration-300 ease-in-out;
+  }
+
+  .luxury-surface:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+
+  .luxury-display-area {
+    @apply mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10;
+  }
+
+  .luxury-section-spacing {
+    @apply space-y-8 lg:space-y-10;
+  }
+
+  .clean-lux-shell {
+    background: #f8fafc;
+    color: #1e293b;
+  }
+
+  .clean-lux-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    backdrop-filter: none;
+  }
+
+  .clean-lux-shell .text-slate-50,
+  .clean-lux-shell .text-slate-100 {
+    color: #0f172a !important;
+  }
+
+  .clean-lux-shell .text-slate-300,
+  .clean-lux-shell .text-slate-400,
+  .clean-lux-shell .text-muted-foreground {
+    color: #475569 !important;
+  }
+
+  .clean-lux-shell .bg-white\/\[0\.04\],
+  .clean-lux-shell .bg-white\/\[0\.08\] {
+    background: #ffffff !important;
+  }
+
+  .clean-lux-shell .border-white\/10,
+  .clean-lux-shell .border-white\/15 {
+    border-color: #e2e8f0 !important;
+  }
+
+  .clean-lux-shell input,
+  .clean-lux-shell [role="combobox"] {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+
+  .clean-lux-shell input::placeholder {
+    color: #94a3b8;
   }
 }

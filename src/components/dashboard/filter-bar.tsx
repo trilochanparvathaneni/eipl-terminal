@@ -13,7 +13,7 @@ export function FilterBar({ left, middle, right, sticky = true, className }: Fil
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm",
+        "luxury-surface px-3 py-3",
         "flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between",
         sticky && "sticky top-16 z-20",
         className

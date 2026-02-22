@@ -30,7 +30,7 @@ export function getWelcomeContent(role: string): WelcomeContent {
   const baseFeatures = [
     { icon: "search", label: "Quick search with keyboard shortcut" },
     { icon: "bell", label: "Real-time notifications" },
-    { icon: "bot", label: "AI chatbot assistant" },
+    { icon: "bot", label: "EIPL Assist" },
   ]
 
   const roleFeatures: Record<string, { icon: string; label: string }[]> = {
@@ -113,8 +113,8 @@ export function getTourSteps(role: string): TourStep[] {
     {
       id: "chatbot",
       target: '[data-tour="chatbot"]',
-      title: "AI Chatbot",
-      description: "Need help? Ask the chatbot for assistance navigating the app.",
+      title: "EIPL Assist",
+      description: "Need help? Ask EIPL Assist for help with navigation and terminal workflows.",
       placement: "top",
     },
     {

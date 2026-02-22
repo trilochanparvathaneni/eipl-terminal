@@ -51,6 +51,28 @@ export const PATTERN_RULES: PatternRule[] = [
     requiredPermission: "incident:create",
     description: "Report a new safety incident",
   },
+  {
+    toolId: "gate_pass_approval",
+    category: "action-request",
+    patterns: [
+      /gate\s*pass/i,
+      /issue\s*gate\s*pass/i,
+      /approve\s*gate\s*pass/i,
+      /truck\s*compliance\s*check/i,
+      /peso\s*(check|compliance)/i,
+      /oisd\s*(check|compliance)/i,
+    ],
+    keywords: [
+      "gate pass",
+      "issue gate pass",
+      "approve gate pass",
+      "truck compliance",
+      "peso check",
+      "oisd check",
+    ],
+    requiredPermission: "gate:read",
+    description: "Pre-check and approve truck gate pass with PESO/OISD compliance workflow",
+  },
 
   // ── Ops Metrics ──────────────────────────────────────────────────────
   {
@@ -146,6 +168,24 @@ export const PATTERN_RULES: PatternRule[] = [
     keywords: ["bay utilization", "bays busy", "bays idle", "bay usage"],
     requiredPermission: "reports:read",
     description: "Bay utilization report with allocation counts per bay",
+  },
+
+  {
+    toolId: "inventory_summary",
+    category: "ops-metric",
+    patterns: [
+      /inventory\s*(level|status|summary)/i,
+      /lpg\s*(level|stock|inventory)/i,
+      /horton\s*sphere/i,
+      /tank\s*(level|capacity|status)/i,
+      /how\s*much\s*(lpg|inventory|stock)/i,
+    ],
+    keywords: [
+      "inventory", "lpg level", "horton sphere", "tank level",
+      "stock", "inventory summary", "storage capacity", "decanting",
+    ],
+    requiredPermission: "reports:read",
+    description: "Horton Sphere LPG inventory levels and product breakdown by client lot",
   },
 
   // ── Stub tools ───────────────────────────────────────────────────────

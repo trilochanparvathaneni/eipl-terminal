@@ -1,7 +1,14 @@
+import type { ChatAction } from "./response-builder"
+import type { ApprovalCardPayload } from "./response-builder"
+import type { AssistResponse } from "../../../types/assistResponse"
+
 export interface FormattedAnswer {
   answer: string
   breakdown?: string[]
   recommendedActions?: string[]
+  actions?: ChatAction[]
+  approvalCard?: ApprovalCardPayload
+  assistResponse?: AssistResponse
   source: string
   navigateTo?: string
 }
@@ -265,6 +272,7 @@ export const TOOL_REGISTRY: Record<string, OpsTool> = {
     formatResponse: (data) => {
       const incidents = data.incidents ?? []
       const openCount = incidents.filter((i: any) => i.status === "OPEN").length
+      const firstOpen = incidents.find((i: any) => i.status === "OPEN")
 
       const breakdown = [
         `Total incidents: ${data.total ?? incidents.length}`,
@@ -285,6 +293,15 @@ export const TOOL_REGISTRY: Record<string, OpsTool> = {
         recommendedActions: openCount > 0
           ? ["Review and resolve open incidents in HSE module"]
           : ["No open incidents — all clear"],
+        actions: firstOpen
+          ? [{
+            id: `resolve-incident-${firstOpen.id}`,
+            label: "Resolve Top Incident",
+            href: "/hse/incidents/{incident_id}",
+            incident_id: String(firstOpen.id),
+            primary: true,
+          }]
+          : [],
         source: "Incidents",
         navigateTo: "/hse",
       }
@@ -304,5 +321,92 @@ export const TOOL_REGISTRY: Record<string, OpsTool> = {
       source: "Incident Reporting",
       navigateTo: "/hse",
     }),
+  },
+
+  gate_pass_approval: {
+    id: "gate_pass_approval",
+    endpoint: "/api/gate-pass/process",
+    method: "GET",
+    requiredPermission: "gate:read",
+    integrated: true,
+    description: "PESO/OISD gate-pass compliance pre-check and approval checklist",
+    formatResponse: (data) => {
+      const status = String(data?.status ?? "BLOCKED").toUpperCase()
+      const truckId = String(data?.truck_id ?? "Unknown")
+      const transporter = String(data?.transporter_name ?? "Unknown")
+
+      if (status === "ACTION_REQUIRED") {
+        return {
+          answer: `Compliance pre-check passed for Truck ${truckId}. Human OISD verification is required before issuing gate pass.`,
+          breakdown: [
+            `Truck: ${truckId}`,
+            `Transporter: ${transporter}`,
+            "All digital checks passed (PESO, Spark Arrestor, Earthing Relay calibration, RC Fitness).",
+            "Complete physical IEFCV/leak/earthing checks below.",
+          ],
+          recommendedActions: [
+            "Complete checklist and issue gate pass",
+          ],
+          approvalCard: data,
+          source: "Gate Pass Compliance",
+          navigateTo: "/security/gate",
+        }
+      }
+
+      return {
+        answer: `Gate pass is blocked for Truck ${truckId} due to compliance gaps.`,
+        breakdown: [
+          `Truck: ${truckId}`,
+          `Transporter: ${transporter}`,
+          data?.compliance_gap_summary || "Compliance failure detected.",
+        ],
+        recommendedActions: [
+          "Resolve highlighted compliance gaps before gate release",
+        ],
+        approvalCard: data,
+        source: "Gate Pass Compliance",
+        navigateTo: "/security/gate",
+      }
+    },
+  },
+
+  inventory_summary: {
+    id: "inventory_summary",
+    endpoint: "/api/inventory/summary",
+    method: "GET",
+    requiredPermission: "reports:read",
+    integrated: true,
+    description: "Horton Sphere LPG inventory levels and product breakdown",
+    formatResponse: (data) => {
+      const pct = data.lpgLevelPercentage ?? 0
+      const lpgKL = data.lpgLevelKL ?? 0
+      const capacityKL = data.hortonSphereCapacityKL ?? 10_000
+      const breakdown = [
+        `LPG in Horton Spheres: ${lpgKL.toFixed(1)} KL (${pct}% of ${capacityKL} KL rated capacity)`,
+        `Total inventory across all products: ${(data.totalKL ?? 0).toFixed(1)} KL`,
+        `Active inventory lots: ${data.lotCount ?? 0}`,
+      ]
+      if (Array.isArray(data.productBreakdown)) {
+        for (const p of data.productBreakdown) {
+          breakdown.push(`• ${p.name} (${p.category}): ${p.totalKL.toFixed(1)} KL across ${p.lotCount} lot(s)`)
+        }
+      }
+      const answer = pct > 90
+        ? `Horton Sphere at ${pct}% capacity (${lpgKL.toFixed(1)} KL). High-capacity alert — decanting and earthing relay status must be verified.`
+        : pct < 10
+          ? `Horton Sphere critically low at ${pct}% (${lpgKL.toFixed(1)} KL). Loading operations are at risk if replenishment is not actioned.`
+          : `LPG inventory at ${pct}% capacity (${lpgKL.toFixed(1)} KL of ${capacityKL} KL). Operational range — ${data.lotCount} active lot(s).`
+      return {
+        answer,
+        breakdown,
+        recommendedActions: pct > 90
+          ? ["Verify decanting procedures and earthing relay status", "Prioritise dispatch scheduling to reduce Horton Sphere load"]
+          : pct < 10
+            ? ["Initiate emergency LPG replenishment schedule", "Review pending bookings for fulfilment risk"]
+            : ["Inventory within normal operating band — no immediate action required"],
+        source: "Inventory Summary",
+        navigateTo: "/reports",
+      }
+    },
   },
 }

@@ -3,10 +3,13 @@ import { getSessionUser } from "@/lib/auth-utils"
 import { hasPermission } from "@/lib/rbac"
 import { TOOL_REGISTRY } from "@/lib/copilot/tool-registry"
 import { buildErrorResponse, buildOpsResponse, type CopilotMessage } from "@/lib/copilot/response-builder"
+import { applyProactiveReasoning } from "@/lib/copilot/proactive-reasoning"
+import { buildAssistContract } from "@/lib/copilot/assist-contract"
 
 interface ChatOpsBody {
   toolId?: string
   extractedParams?: Record<string, string>
+  rawQuery?: string
 }
 
 function withParams(endpoint: string, params?: Record<string, string>): string {
@@ -56,13 +59,33 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const fetchInternalJson = async (endpoint: string): Promise<any | null> => {
+      const response = await fetch(new URL(endpoint, request.nextUrl.origin), {
+        method: "GET",
+        headers: { cookie: request.headers.get("cookie") ?? "" },
+        cache: "no-store",
+      })
+      if (!response.ok) return null
+      return response.json()
+    }
+
     // Keep calls internal and authenticated by forwarding cookies.
     if (tool.method === "POST") {
       const formatted = tool.formatResponse({})
+      formatted.assistResponse = buildAssistContract({
+        toolId: tool.id,
+        data: {},
+        formatted,
+        user,
+      })
       return NextResponse.json(buildOpsResponse(formatted))
     }
 
-    const endpoint = withParams(tool.endpoint, body.extractedParams)
+    const params = { ...(body.extractedParams ?? {}) }
+    if (body.rawQuery) {
+      params.rawQuery = body.rawQuery
+    }
+    const endpoint = withParams(tool.endpoint, params)
     const upstream = await fetch(new URL(endpoint, request.nextUrl.origin), {
       method: "GET",
       headers: { cookie: request.headers.get("cookie") ?? "" },
@@ -75,6 +98,25 @@ export async function POST(request: NextRequest) {
 
     const data = await upstream.json()
     const formatted = tool.formatResponse(data)
+    const proactive = await applyProactiveReasoning({
+      toolId: tool.id,
+      primaryData: data,
+      fetchedAt: new Date(),
+      rawQuery: body.rawQuery,
+      fetchInternalJson,
+    })
+
+    if (proactive) {
+      formatted.breakdown = [...(formatted.breakdown ?? []), ...(proactive.breakdown ?? [])]
+      formatted.recommendedActions = [...(formatted.recommendedActions ?? []), ...(proactive.recommendedActions ?? [])]
+      formatted.actions = [...(formatted.actions ?? []), ...(proactive.actions ?? [])]
+    }
+    formatted.assistResponse = buildAssistContract({
+      toolId: tool.id,
+      data,
+      formatted,
+      user,
+    })
     return NextResponse.json(buildOpsResponse(formatted))
   } catch {
     return NextResponse.json(buildErrorResponse("Assistant is temporarily unavailable. Please try again."), { status: 500 })

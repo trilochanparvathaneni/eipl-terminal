@@ -42,17 +42,17 @@ export default function NotificationsPage() {
       ) : (
         <div className="space-y-2">
           {data?.notifications?.map((n: any) => (
-            <Card key={n.id} className={!n.readAt ? "border-primary/30 bg-primary/5" : ""}>
+            <Card key={n.id} className={!n.readAt ? "border-white/20 bg-white/[0.08]" : ""}>
               <CardContent className="py-3 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <span className="inline-flex">
-                    <Bell className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <Bell className="mt-0.5 h-4 w-4 text-slate-400" />
                     <HelpTooltip description="What it is: Notification icon. Why it matters: Indicates an informational alert entry." />
                   </span>
                   <div>
-                    <p className="text-sm font-medium">{n.subject}</p>
-                    <p className="text-sm text-muted-foreground">{n.body}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{formatDateTime(n.createdAt)}</p>
+                    <p className="text-sm font-medium text-slate-100">{n.subject}</p>
+                    <p className="text-sm text-slate-300">{n.body}</p>
+                    <p className="mt-1 text-xs text-slate-400">{formatDateTime(n.createdAt)}</p>
                   </div>
                 </div>
                 {!n.readAt && (
@@ -64,7 +64,7 @@ export default function NotificationsPage() {
             </Card>
           ))}
           {(!data?.notifications || data.notifications.length === 0) && (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">No notifications</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-slate-400">No notifications</CardContent></Card>
           )}
         </div>
       )}

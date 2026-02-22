@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ReactNode } from "react"
+import { shortTip } from "@/lib/ui/tooltipCopy"
 
 interface HelpTooltipProps {
   description: string
@@ -34,8 +35,10 @@ export function HelpTooltip({
     <TooltipProvider delayDuration={180}>
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side={side} className="max-w-64 text-xs leading-relaxed">
-          <p>{description}</p>
+        <TooltipContent side={side}>
+          <p className="overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+            {shortTip(description)}
+          </p>
           {learnMoreHref && (
             <Link href={learnMoreHref} className="mt-1 inline-block text-blue-600 hover:underline">
               Learn more

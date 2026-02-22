@@ -25,14 +25,14 @@ export function KpiCard({
   supportingText,
 }: KpiCardProps) {
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
+    <Card>
       <CardContent className="space-y-2 p-4">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
           <span>{title}</span>
           {tooltip && <HelpTooltip description={tooltip} label={`${title} help`} />}
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-1 text-2xl font-semibold leading-none text-slate-900">
+          <div className="inline-flex items-center gap-1 text-2xl font-semibold leading-none text-slate-50">
             <span>{value}</span>
             {valueTooltip && <HelpTooltip description={valueTooltip} label={`${title} value help`} />}
           </div>
@@ -41,9 +41,9 @@ export function KpiCard({
               <Badge
                 className={cn(
                   "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
-                  deltaTone === "positive" && "bg-emerald-50 text-emerald-700",
-                  deltaTone === "negative" && "bg-red-50 text-red-700",
-                  deltaTone === "neutral" && "bg-slate-100 text-slate-600"
+                  deltaTone === "positive" && "bg-emerald-500/15 text-emerald-200",
+                  deltaTone === "negative" && "bg-red-500/15 text-red-200",
+                  deltaTone === "neutral" && "bg-white/10 text-slate-200"
                 )}
               >
                 {delta}
@@ -52,7 +52,7 @@ export function KpiCard({
             </span>
           )}
         </div>
-        {supportingText && <p className="text-xs text-slate-500">{supportingText}</p>}
+        {supportingText && <p className="text-xs text-slate-400">{supportingText}</p>}
       </CardContent>
     </Card>
   )
@@ -60,11 +60,11 @@ export function KpiCard({
 
 export function KpiCardSkeleton() {
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
+    <Card>
       <CardContent className="space-y-3 p-4">
-        <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
-        <div className="h-7 w-20 animate-pulse rounded bg-slate-200" />
-        <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+        <div className="h-3 w-24 animate-pulse rounded bg-white/[0.15]" />
+        <div className="h-7 w-20 animate-pulse rounded bg-white/[0.15]" />
+        <div className="h-3 w-28 animate-pulse rounded bg-white/[0.15]" />
       </CardContent>
     </Card>
   )

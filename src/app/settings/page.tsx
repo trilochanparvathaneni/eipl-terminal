@@ -116,7 +116,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="inline-flex items-center gap-2 text-2xl font-bold">
-          <Settings className="h-6 w-6 text-blue-600" />
+          <Settings className="h-6 w-6 text-slate-200" />
           Settings
         </h1>
         <Button onClick={saveSettings}>
@@ -219,19 +219,19 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="inline-flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-blue-600" />
+                <Wrench className="h-4 w-4 text-slate-200" />
                 Infrastructure Intake
               </CardTitle>
               <CardDescription>Bay and gantry operational controls for admin/controller roles.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {!canManageInfra ? (
-                <p className="text-sm text-slate-500">You do not have permission to modify bay or gantry operations.</p>
+                <p className="text-sm text-slate-400">You do not have permission to modify bay or gantry operations.</p>
               ) : (
                 <>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-medium text-slate-700">Sub-section: Bay Actions</p>
-                    <p className="text-xs text-slate-500">Select a bay and apply operational state changes.</p>
+                  <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
+                    <p className="text-sm font-medium text-slate-200">Sub-section: Bay Actions</p>
+                    <p className="text-xs text-slate-400">Select a bay and apply operational state changes.</p>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2">
@@ -294,8 +294,8 @@ export default function SettingsPage() {
                   </div>
 
                   {selectedBay && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                      <p className="font-medium text-slate-800">{selectedBay.gantry?.name} / {selectedBay.uniqueCode}</p>
+                    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm">
+                      <p className="font-medium text-slate-100">{selectedBay.gantry?.name} / {selectedBay.uniqueCode}</p>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs">
                         <Badge variant="outline">Status: {selectedBay.status}</Badge>
                         <Badge variant="outline">Changeover: {selectedBay.changeoverState}</Badge>
@@ -304,21 +304,21 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                      <Building2 className="h-4 w-4 text-slate-500" />
+                  <div className="rounded-md border border-white/10 bg-white/[0.04] p-3">
+                    <p className="inline-flex items-center gap-1 text-sm font-medium text-slate-200">
+                      <Building2 className="h-4 w-4 text-slate-400" />
                       Sub-section: Gantry Overview
                       <HelpTooltip description="What it is: Bay counts grouped by gantry. Why it matters: Helps spot uneven capacity distribution." />
                     </p>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {gantrySummary.map((g) => (
-                        <div key={g.name} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-                          <span className="font-medium text-slate-800">{g.name}</span>
-                          <span className="ml-2 text-slate-500">{g.count} bays</span>
+                        <div key={g.name} className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                          <span className="font-medium text-slate-100">{g.name}</span>
+                          <span className="ml-2 text-slate-400">{g.count} bays</span>
                         </div>
                       ))}
                       {gantrySummary.length === 0 && (
-                        <p className="text-sm text-slate-500">No gantry data found for your current scope.</p>
+                        <p className="text-sm text-slate-400">No gantry data found for your current scope.</p>
                       )}
                     </div>
                   </div>
@@ -372,11 +372,11 @@ export default function SettingsPage() {
             <CardContent className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Name</Label>
-                <Input value={session?.user?.name || ""} readOnly className="bg-slate-50" />
+                <Input value={session?.user?.name || ""} readOnly className="bg-white/[0.04]" />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input value={session?.user?.email || ""} readOnly className="bg-slate-50" />
+                <Input value={session?.user?.email || ""} readOnly className="bg-white/[0.04]" />
               </div>
             </CardContent>
           </Card>

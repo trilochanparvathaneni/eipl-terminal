@@ -43,21 +43,21 @@ const BAYS: BayData[] = [
 const ALL_PRODUCTS = ["Diesel", "Petrol", "LPG", "SKO", "Kerosene", "Propane", "Ethanol", "HSD"]
 
 const PRODUCT_COLORS: Record<string, string> = {
-  Diesel: "bg-blue-100 text-blue-700 border-blue-200",
-  Petrol: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  LPG: "bg-orange-100 text-orange-700 border-orange-200",
-  SKO: "bg-purple-100 text-purple-700 border-purple-200",
-  Kerosene: "bg-teal-100 text-teal-700 border-teal-200",
-  Propane: "bg-amber-100 text-amber-700 border-amber-200",
-  Ethanol: "bg-pink-100 text-pink-700 border-pink-200",
-  HSD: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  Diesel: "bg-sky-500/15 text-sky-200 border-sky-400/35",
+  Petrol: "bg-emerald-500/15 text-emerald-200 border-emerald-400/35",
+  LPG: "bg-orange-500/15 text-orange-200 border-orange-400/35",
+  SKO: "bg-violet-500/15 text-violet-200 border-violet-400/35",
+  Kerosene: "bg-teal-500/15 text-teal-200 border-teal-400/35",
+  Propane: "bg-amber-500/15 text-amber-200 border-amber-400/35",
+  Ethanol: "bg-pink-500/15 text-pink-200 border-pink-400/35",
+  HSD: "bg-indigo-500/15 text-indigo-200 border-indigo-400/35",
 }
 
 const STATUS_CONFIG: Record<BayStatus, { label: string; bg: string; border: string; text: string; icon: typeof Fuel }> = {
-  occupied: { label: "Occupied", bg: "bg-red-50", border: "border-red-300", text: "text-red-700", icon: Truck },
-  available: { label: "Available", bg: "bg-green-50", border: "border-green-300", text: "text-green-700", icon: Check },
-  maintenance: { label: "Maintenance", bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-600", icon: Wrench },
-  reserved: { label: "Reserved", bg: "bg-amber-50", border: "border-amber-300", text: "text-amber-700", icon: CalendarClock },
+  occupied: { label: "Occupied", bg: "bg-red-500/12", border: "border-red-400/35", text: "text-red-200", icon: Truck },
+  available: { label: "Available", bg: "bg-emerald-500/12", border: "border-emerald-400/35", text: "text-emerald-200", icon: Check },
+  maintenance: { label: "Maintenance", bg: "bg-slate-500/12", border: "border-slate-400/35", text: "text-slate-200", icon: Wrench },
+  reserved: { label: "Reserved", bg: "bg-amber-500/12", border: "border-amber-400/35", text: "text-amber-200", icon: CalendarClock },
 }
 
 // ── Estimated completion helper ──────────────────────────────────────────────
@@ -86,11 +86,11 @@ export function BayHeatmap() {
     productFilter === "ALL" || bay.products.includes(productFilter)
 
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3">
         <div>
           <CardTitle className="text-lg">Terminal Bay Status &mdash; Live View</CardTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">Real-time bay occupancy and product compatibility</p>
+          <p className="mt-0.5 text-xs text-slate-400">Real-time bay occupancy and product compatibility</p>
         </div>
         <Select value={productFilter} onValueChange={setProductFilter}>
           <SelectTrigger className="w-[180px]">
@@ -133,13 +133,13 @@ export function BayHeatmap() {
                 className={`
                   relative text-left rounded-lg border-2 p-3 transition-all
                   ${cfg.bg} ${cfg.border}
-                  ${dimmed ? "opacity-30" : "hover:shadow-md hover:scale-[1.02] cursor-pointer"}
-                  ${bay.status === "maintenance" ? "bg-[repeating-linear-gradient(135deg,transparent,transparent_8px,rgba(0,0,0,0.03)_8px,rgba(0,0,0,0.03)_16px)]" : ""}
+                  ${dimmed ? "opacity-30" : "cursor-pointer hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]"}
+                  ${bay.status === "maintenance" ? "bg-[repeating-linear-gradient(135deg,transparent,transparent_8px,rgba(148,163,184,0.1)_8px,rgba(148,163,184,0.1)_16px)]" : ""}
                 `}
               >
                 {/* Bay header */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-sm text-gray-900">{bay.name}</span>
+                  <span className="text-sm font-bold text-slate-100">{bay.name}</span>
                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${cfg.text} ${cfg.border}`}>
                     {cfg.label}
                   </Badge>
@@ -150,7 +150,7 @@ export function BayHeatmap() {
                   {bay.products.map((prod) => (
                     <span
                       key={prod}
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${PRODUCT_COLORS[prod] || "bg-gray-100 text-gray-600 border-gray-200"}`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${PRODUCT_COLORS[prod] || "border-slate-400/35 bg-slate-500/15 text-slate-200"}`}
                     >
                       {prod}
                     </span>
@@ -160,12 +160,12 @@ export function BayHeatmap() {
                 {/* Occupied: truck info + progress */}
                 {bay.status === "occupied" && bay.truck && (
                   <div className="mt-1">
-                    <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                    <div className="mb-1 flex items-center gap-1 text-xs text-slate-300">
                       <Truck className="h-3 w-3" />
                       <span className="font-mono text-[11px]">{bay.truck}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-red-200/50 rounded-full h-2 overflow-hidden">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.12]">
                         <div
                           className={`h-full rounded-full transition-all ${
                             bay.loadPercent! >= 90 ? "bg-green-500" : bay.loadPercent! >= 50 ? "bg-amber-500" : "bg-red-500"
@@ -173,9 +173,9 @@ export function BayHeatmap() {
                           style={{ width: `${bay.loadPercent}%` }}
                         />
                       </div>
-                      <span className="text-[11px] font-semibold text-gray-700">{bay.loadPercent}%</span>
+                      <span className="text-[11px] font-semibold text-slate-200">{bay.loadPercent}%</span>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{bay.product} loading</p>
+                    <p className="mt-0.5 text-[10px] text-slate-400">{bay.product} loading</p>
                   </div>
                 )}
 
@@ -189,7 +189,7 @@ export function BayHeatmap() {
 
                 {/* Maintenance: label */}
                 {bay.status === "maintenance" && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                  <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
                     <Wrench className="h-3 w-3" />
                     <span>Under maintenance</span>
                   </div>
@@ -200,16 +200,16 @@ export function BayHeatmap() {
         </div>
 
         {/* Legend */}
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-gray-500 mb-2">Legend</p>
+        <div className="border-t border-white/10 pt-3">
+          <p className="mb-2 text-xs font-medium text-slate-400">Legend</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             {(Object.entries(STATUS_CONFIG) as [BayStatus, typeof STATUS_CONFIG[BayStatus]][]).map(([status, cfg]) => (
-              <div key={status} className="flex items-center gap-1.5 text-xs text-gray-600">
+              <div key={status} className="flex items-center gap-1.5 text-xs text-slate-300">
                 <div className={`w-3 h-3 rounded border-2 ${cfg.bg} ${cfg.border} ${status === "maintenance" ? "bg-[repeating-linear-gradient(135deg,transparent,transparent_2px,rgba(0,0,0,0.1)_2px,rgba(0,0,0,0.1)_4px)]" : ""}`} />
                 <span>{cfg.label}</span>
               </div>
             ))}
-            <div className="w-px bg-gray-200 mx-1" />
+            <div className="mx-1 w-px bg-white/15" />
             {ALL_PRODUCTS.map((prod) => (
               <div key={prod} className="flex items-center gap-1 text-xs">
                 <span className={`px-1.5 py-0 rounded-full border text-[10px] font-medium ${PRODUCT_COLORS[prod]}`}>{prod}</span>
@@ -219,15 +219,15 @@ export function BayHeatmap() {
         </div>
 
         {/* Product-Bay Compatibility Matrix */}
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-gray-500 mb-2">Product-Bay Compatibility Matrix</p>
+        <div className="border-t border-white/10 pt-3">
+          <p className="mb-2 text-xs font-medium text-slate-400">Product-Bay Compatibility Matrix</p>
           <div className="overflow-x-auto">
             <table className="text-xs w-full">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left py-1.5 px-2 text-gray-500 font-medium sticky left-0 bg-white">Product</th>
+                <tr className="border-b border-white/10">
+                  <th className="sticky left-0 bg-slate-900/95 px-2 py-1.5 text-left font-medium text-slate-300">Product</th>
                   {BAYS.map((b) => (
-                    <th key={b.id} className="text-center py-1.5 px-1.5 text-gray-500 font-medium whitespace-nowrap">
+                    <th key={b.id} className="whitespace-nowrap px-1.5 py-1.5 text-center font-medium text-slate-300">
                       B{b.id}
                     </th>
                   ))}
@@ -235,16 +235,16 @@ export function BayHeatmap() {
               </thead>
               <tbody>
                 {ALL_PRODUCTS.filter((p) => BAYS.some((b) => b.products.includes(p))).map((prod) => (
-                  <tr key={prod} className="border-b last:border-0 hover:bg-gray-50/50">
-                    <td className="py-1.5 px-2 font-medium text-gray-700 sticky left-0 bg-white">
+                  <tr key={prod} className="border-b border-white/10 last:border-0 hover:bg-white/[0.04]">
+                    <td className="sticky left-0 bg-slate-900/95 px-2 py-1.5 font-medium text-slate-200">
                       <span className={`px-1.5 py-0.5 rounded-full border text-[10px] ${PRODUCT_COLORS[prod]}`}>{prod}</span>
                     </td>
                     {BAYS.map((bay) => (
                       <td key={bay.id} className="text-center py-1.5 px-1.5">
                         {bay.products.includes(prod) ? (
-                          <Check className="h-3.5 w-3.5 text-green-500 mx-auto" />
+                          <Check className="mx-auto h-3.5 w-3.5 text-emerald-300" />
                         ) : (
-                          <X className="h-3 w-3 text-gray-200 mx-auto" />
+                          <X className="mx-auto h-3 w-3 text-slate-600" />
                         )}
                       </td>
                     ))}
@@ -272,7 +272,7 @@ export function BayHeatmap() {
               <div className="space-y-4">
                 {/* Compatible Products */}
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1.5">Compatible Products</p>
+                  <p className="mb-1.5 text-sm font-medium text-slate-300">Compatible Products</p>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedBay.products.map((prod) => (
                       <span key={prod} className={`text-xs px-2 py-1 rounded-full border font-medium ${PRODUCT_COLORS[prod]}`}>
@@ -286,23 +286,23 @@ export function BayHeatmap() {
                 {selectedBay.status === "occupied" && selectedBay.truck && (
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1.5">Current Truck</p>
-                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <p className="mb-1.5 text-sm font-medium text-slate-300">Current Truck</p>
+                      <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.04] p-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Truck Number</span>
-                          <code className="font-mono font-medium bg-gray-200 px-1.5 py-0.5 rounded text-xs">{selectedBay.truck}</code>
+                          <span className="text-slate-400">Truck Number</span>
+                          <code className="rounded bg-white/[0.12] px-1.5 py-0.5 font-mono text-xs font-medium">{selectedBay.truck}</code>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Product</span>
-                          <span className="font-medium">{selectedBay.product}</span>
+                          <span className="text-slate-400">Product</span>
+                          <span className="font-medium text-slate-100">{selectedBay.product}</span>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1.5">Loading Progress</p>
-                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <p className="mb-1.5 text-sm font-medium text-slate-300">Loading Progress</p>
+                      <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.04] p-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/[0.12]">
                             <div
                               className={`h-full rounded-full transition-all ${
                                 selectedBay.loadPercent! >= 90 ? "bg-green-500" : selectedBay.loadPercent! >= 50 ? "bg-amber-500" : "bg-red-500"
@@ -310,9 +310,9 @@ export function BayHeatmap() {
                               style={{ width: `${selectedBay.loadPercent}%` }}
                             />
                           </div>
-                          <span className="text-sm font-bold min-w-[40px] text-right">{selectedBay.loadPercent}%</span>
+                          <span className="min-w-[40px] text-right text-sm font-bold text-slate-100">{selectedBay.loadPercent}%</span>
                         </div>
-                        <p className="text-xs text-gray-500">{estimatedCompletion(selectedBay.loadPercent!)}</p>
+                        <p className="text-xs text-slate-400">{estimatedCompletion(selectedBay.loadPercent!)}</p>
                       </div>
                     </div>
                   </div>
@@ -321,10 +321,10 @@ export function BayHeatmap() {
                 {/* Reserved info */}
                 {selectedBay.status === "reserved" && selectedBay.scheduledTime && (
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1.5">Reservation</p>
-                    <div className="bg-amber-50 rounded-lg p-3 flex items-center gap-2">
-                      <CalendarClock className="h-4 w-4 text-amber-600" />
-                      <span className="text-sm text-amber-700">Scheduled for <strong>{selectedBay.scheduledTime}</strong></span>
+                    <p className="mb-1.5 text-sm font-medium text-slate-300">Reservation</p>
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3">
+                      <CalendarClock className="h-4 w-4 text-amber-300" />
+                      <span className="text-sm text-amber-200">Scheduled for <strong>{selectedBay.scheduledTime}</strong></span>
                     </div>
                   </div>
                 )}
@@ -332,10 +332,10 @@ export function BayHeatmap() {
                 {/* Maintenance info */}
                 {selectedBay.status === "maintenance" && (
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1.5">Status</p>
-                    <div className="bg-gray-100 rounded-lg p-3 flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">Bay is currently under scheduled maintenance</span>
+                    <p className="mb-1.5 text-sm font-medium text-slate-300">Status</p>
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-400/25 bg-slate-500/10 p-3">
+                      <Wrench className="h-4 w-4 text-slate-300" />
+                      <span className="text-sm text-slate-300">Bay is currently under scheduled maintenance</span>
                     </div>
                   </div>
                 )}
@@ -343,10 +343,10 @@ export function BayHeatmap() {
                 {/* Available info */}
                 {selectedBay.status === "available" && (
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1.5">Status</p>
-                    <div className="bg-green-50 rounded-lg p-3 flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm text-green-700">Bay is available for allocation</span>
+                    <p className="mb-1.5 text-sm font-medium text-slate-300">Status</p>
+                    <div className="flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
+                      <Check className="h-4 w-4 text-emerald-300" />
+                      <span className="text-sm text-emerald-200">Bay is available for allocation</span>
                     </div>
                   </div>
                 )}

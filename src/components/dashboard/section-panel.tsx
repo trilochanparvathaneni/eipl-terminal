@@ -24,16 +24,16 @@ export function SectionPanel({
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   return (
-    <Card className={cn("border-slate-200 bg-white shadow-sm", className)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-slate-100 px-4 py-3">
-        <CardTitle className="text-sm font-semibold tracking-wide text-slate-700">{title}</CardTitle>
+    <Card className={cn(className)}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-white/10 px-4 py-3">
+        <CardTitle className="text-sm font-semibold tracking-wide text-slate-100">{title}</CardTitle>
         <div className="flex items-center gap-2">
           {action}
           {collapsible && (
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
-              className="rounded-md border border-slate-200 p-1 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              className="rounded-md border border-white/15 p-1 text-slate-400 transition-all duration-300 ease-in-out hover:bg-white/[0.08] hover:text-slate-200"
               aria-label={collapsed ? "Expand section" : "Collapse section"}
             >
               <ChevronDown className={cn("h-4 w-4 transition-transform", collapsed && "-rotate-90")} />

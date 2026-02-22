@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { MessageCircle, X, Send, Bot, ArrowRight, Loader2 } from "lucide-react"
-import { getNavItems } from "@/lib/rbac"
-import { classifyIntent } from "@/lib/copilot/intent-classifier"
 import type { CopilotMessage, ChatAction } from "@/lib/copilot/response-builder"
+import { AssistActionButton, resolveActionHref } from "@/components/layout/assist-action-button"
+import { ApprovalChatCard } from "@/components/intelligence/ApprovalChatCard"
+import EIPLBotMessage from "@/components/layout/EIPLBotMessage"
+import type { AssistResponse, ChatRole as AssistChatRole } from "../../../types/assistResponse"
+import { guardAssistAction } from "@/lib/assist/action-route-guard"
 
 type ChatRole = any
 
@@ -15,6 +18,17 @@ type ChatMessage = {
   sender: "bot" | "user"
   text: string
   actions?: ChatAction[]
+  assistResponse?: AssistResponse
+  approvalCard?: CopilotMessage["approvalCard"]
+  geminiPayload?: {
+    reply_text?: string
+    action_buttons?: Array<{ label: string; url: string; urgency?: string; tooltip?: string }>
+    response_mode?: "live" | "fallback"
+    headline?: string
+    terminal_state?: "OPEN" | "LIMITED" | "PAUSED"
+    metrics?: Array<{ key: string; label: string; value: string; tooltip: string }>
+    blockers?: Array<{ text: string; severity?: "low" | "medium" | "high" }>
+  }
   breakdown?: string[]
   recommendedActions?: string[]
   source?: string
@@ -36,7 +50,22 @@ const SUGGESTED_CHIPS = [
 ]
 
 const CHAT_REQUEST_TIMEOUT_MS = 12000
-const CHAT_MAX_RETRIES = 2
+
+type StructuredChatResponse = {
+  reply_text: string
+  urgency: "low" | "medium" | "high"
+  action_buttons: Array<{ label: string; url: string; tooltip?: string }>
+  headline?: string
+  terminal_state?: "OPEN" | "LIMITED" | "PAUSED"
+  metrics?: Array<{ key: string; label: string; value: string; tooltip: string }>
+  blockers?: Array<{ text: string; severity?: "low" | "medium" | "high" }>
+}
+
+type ChatResponseMode = "live" | "fallback"
+
+function toAssistRole(role: any): AssistChatRole {
+  return role === "CLIENT" || role === "TRANSPORTER" ? "external_client" : "internal_ops"
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -68,10 +97,38 @@ function getRecommendedActionTarget(text: string): ChatAction | null {
   return null
 }
 
+function isStructuredChatResponse(data: unknown): data is StructuredChatResponse {
+  if (!data || typeof data !== "object") return false
+  const payload = data as StructuredChatResponse
+  const metricsOk =
+    payload.metrics === undefined ||
+    (Array.isArray(payload.metrics) &&
+      payload.metrics.every(
+        (metric) =>
+          typeof metric?.key === "string" &&
+          typeof metric?.label === "string" &&
+          typeof metric?.value === "string" &&
+          typeof metric?.tooltip === "string"
+      ))
+  const blockersOk =
+    payload.blockers === undefined ||
+    (Array.isArray(payload.blockers) &&
+      payload.blockers.every((blocker) => typeof blocker?.text === "string"))
+  return (
+    typeof payload.reply_text === "string" &&
+    (payload.urgency === "low" || payload.urgency === "medium" || payload.urgency === "high") &&
+    Array.isArray(payload.action_buttons) &&
+    payload.action_buttons.every((button) => typeof button?.label === "string" && typeof button?.url === "string") &&
+    metricsOk &&
+    blockersOk
+  )
+}
+
 export function ChatbotWidget({ role }: { role: ChatRole }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
+  const [isSending, setIsSending] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: makeId(),
@@ -81,7 +138,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
   ])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const navItems = useMemo(() => getNavItems(role), [role])
+  const assistRole = useMemo(() => toAssistRole(role), [role])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -92,165 +149,80 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
       signOut({ callbackUrl: "/login" })
       return
     }
-    if (action.href) {
-      router.push(action.href)
-      setOpen(false)
-    }
+    const href = resolveActionHref(action)
+    const guarded = guardAssistAction({ label: action.label, href })
+    router.push(guarded.href)
+    setOpen(false)
   }
 
-  const getNavReply = useCallback((query: string): ChatMessage | null => {
-    const q = query.trim().toLowerCase()
+  const requestChatResponse = useCallback(async (userText: string) => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
 
-    if (q.includes("sign out") || q.includes("logout") || q.includes("log out")) {
-      return {
-        id: makeId(),
-        sender: "bot",
-        text: "You can sign out from here.",
-        actions: [{ id: "signout", label: "Sign out", action: "signout" }],
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
+        signal: controller.signal,
+      })
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null)
+        throw new Error(payload?.error || `Assistant request failed (${res.status})`)
       }
+
+      const payload = await res.json()
+      if (!isStructuredChatResponse(payload)) {
+        throw new Error("Assistant returned an invalid response format.")
+      }
+
+      const headerMode = res.headers.get("x-eipl-response-mode")
+      const responseMode: ChatResponseMode = headerMode === "live" ? "live" : "fallback"
+
+      return { payload, responseMode }
+    } finally {
+      clearTimeout(timeout)
     }
-
-    if (q.includes("notification")) {
-      return {
-        id: makeId(),
-        sender: "bot",
-        text: "Opening notifications.",
-        actions: [{ id: "notifications", label: "Notifications", href: "/notifications" }],
-      }
-    }
-
-    const directMatch = navItems.find((item) => q.includes(item.label.toLowerCase()))
-    if (directMatch) {
-      return {
-        id: makeId(),
-        sender: "bot",
-        text: `Opening ${directMatch.label}.`,
-        actions: [{ id: directMatch.href, label: directMatch.label, href: directMatch.href }],
-      }
-    }
-
-    const keywordMatch = navItems.find((item) =>
-      q.split(/\s+/).some((token) => item.label.toLowerCase().includes(token))
-    )
-    if (keywordMatch) {
-      return {
-        id: makeId(),
-        sender: "bot",
-        text: `Did you mean ${keywordMatch.label}?`,
-        actions: [{ id: keywordMatch.href, label: keywordMatch.label, href: keywordMatch.href }],
-      }
-    }
-
-    return null
-  }, [navItems])
-
-  const requestOpsResponse = useCallback(
-    async (toolId: string, extractedParams: Record<string, string>) => {
-      let lastError: Error | null = null
-
-      for (let attempt = 0; attempt <= CHAT_MAX_RETRIES; attempt += 1) {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS)
-
-        try {
-          const res = await fetch("/api/chat/ops", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toolId, extractedParams }),
-            signal: controller.signal,
-          })
-          clearTimeout(timeout)
-
-          if (!res.ok) {
-            const payload = await res.json().catch(() => null)
-            const message = payload?.text || payload?.error || `Assistant request failed (${res.status})`
-            throw new Error(message)
-          }
-
-          return (await res.json()) as CopilotMessage
-        } catch (err) {
-          clearTimeout(timeout)
-          lastError = err instanceof Error ? err : new Error("Unknown assistant error")
-          if (attempt < CHAT_MAX_RETRIES) {
-            await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
-          }
-        }
-      }
-
-      throw lastError ?? new Error("Assistant request failed")
-    },
-    []
-  )
+  }, [])
 
   const handleMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed || isSending) return
 
     const userMessage: ChatMessage = { id: makeId(), sender: "user", text: trimmed }
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-
-    // Classify intent
-    const intent = classifyIntent(trimmed, role)
-
-    // Permission denied
-    if (intent.permissionDenied) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: makeId(),
-          sender: "bot",
-          text: "You don't have access to this data. Contact your administrator if you believe this is an error.",
-          error: `Permission denied for ${intent.toolId}`,
-        },
-      ])
-      return
-    }
-
-    // Navigation intent — handle locally
-    if (intent.category === "navigation" || !intent.toolId) {
-      const navReply = getNavReply(trimmed)
-      if (navReply) {
-        setMessages((prev) => [...prev, navReply])
-        return
-      }
-
-      // Fallback
-      const quickActions: ChatAction[] = navItems.slice(0, 4).map((item) => ({
-        id: item.href,
-        label: item.label,
-        href: item.href,
-      }))
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: makeId(),
-          sender: "bot",
-          text: "I can help with navigation or ops questions. Choose a destination or ask about metrics:",
-          actions: quickActions,
-        },
-      ])
-      return
-    }
-
-    // Ops / Safety / Action intent — call server
     const loadingId = makeId()
-    setMessages((prev) => [
-      ...prev,
-      { id: loadingId, sender: "bot", text: "Fetching data...", isLoading: true },
-    ])
+    setMessages((prev) => [...prev, userMessage, { id: loadingId, sender: "bot", text: "EIPL Assist is typing...", isLoading: true }])
+    setInput("")
+    setIsSending(true)
 
     try {
-      const data = await requestOpsResponse(intent.toolId, intent.extractedParams)
+      const { payload, responseMode } = await requestChatResponse(trimmed)
+      const geminiPayload: NonNullable<ChatMessage["geminiPayload"]> = {
+        reply_text: payload.reply_text,
+        action_buttons: payload.action_buttons.map((button) => ({
+          ...button,
+          urgency: payload.urgency,
+        })),
+        response_mode: responseMode,
+        ...(("headline" in payload || "metrics" in payload || "blockers" in payload || "terminal_state" in payload)
+          ? {
+              headline: payload.headline,
+              terminal_state: payload.terminal_state,
+              metrics: payload.metrics,
+              blockers: payload.blockers,
+            }
+          : {}),
+      }
 
-      // Replace loading message with response
       setMessages((prev) =>
         prev.map((m) =>
           m.id === loadingId
             ? {
-                ...data,
                 id: loadingId,
                 sender: "bot" as const,
+                text: payload.reply_text,
+                geminiPayload,
                 isLoading: false,
               }
             : m
@@ -259,8 +231,10 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     } catch (err) {
       const errorText =
         err instanceof Error && err.name === "AbortError"
-          ? "EIPL Assist timed out. Retrying usually resolves this."
-          : "EIPL Assist is temporarily unavailable. Please try again."
+          ? "EIPL Assist timed out. Please try again."
+          : err instanceof Error && err.message
+            ? err.message
+            : "EIPL Assist is temporarily unavailable. Please try again."
       setMessages((prev) =>
         prev.map((m) =>
           m.id === loadingId
@@ -274,9 +248,10 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
             : m
         )
       )
+    } finally {
+      setIsSending(false)
     }
-  }, [role, navItems, getNavReply, requestOpsResponse])
-
+  }, [isSending, requestChatResponse])
   function handleChip(chip: string) {
     handleMessage(chip)
   }
@@ -308,20 +283,23 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
             {messages.map((message, idx) => (
               <div key={message.id}>
                 {/* Message bubble */}
-                <div
-                  className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
-                    message.sender === "user"
-                      ? "ml-auto bg-white/15 text-slate-50"
-                      : "bg-white/[0.06] text-slate-100"
-                  }`}
-                >
-                  {message.isLoading ? (
+                {message.sender === "bot" && message.geminiPayload ? (
+                  <EIPLBotMessage payload={message.geminiPayload} />
+                ) : (
+                  <div
+                    className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
+                      message.sender === "user"
+                        ? "ml-auto bg-white/15 text-slate-50"
+                        : "bg-white/[0.06] text-slate-100"
+                    }`}
+                  >
+                    {message.isLoading ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span className="text-slate-400">Fetching data...</span>
+                      <span className="text-slate-400">EIPL Assist is typing...</span>
                     </div>
-                  ) : (
-                    <>
+                    ) : (
+                      <>
                       {/* Main text */}
                       {message.isOpsMetric ? (
                         <p className="font-medium">{message.text}</p>
@@ -340,6 +318,62 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                         </ul>
                       )}
 
+                      {/* Structured assist contract */}
+                      {message.assistResponse && (
+                        <div className="mt-2 rounded-lg border border-white/15 bg-black/20 p-2">
+                          <p className="text-xs font-semibold text-slate-100">{message.assistResponse.headline}</p>
+                          <p className="mt-0.5 text-xs text-slate-300">{message.assistResponse.summary}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {message.assistResponse.status.label} ({message.assistResponse.status.severity})
+                          </p>
+
+                          {message.assistResponse.metrics.length > 0 && (
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              {message.assistResponse.metrics.slice(0, 4).map((m) => (
+                                <div key={`${m.label}-${m.value}`} title={m.hint || `${m.label}: ${m.value}`} className="rounded border border-white/10 px-2 py-1">
+                                  <p className="text-[10px] uppercase tracking-wide text-slate-400">{m.label}</p>
+                                  <p className="text-xs font-semibold text-slate-100">{m.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {message.assistResponse.blockers && (
+                            <div className="mt-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                {message.assistResponse.blockers.title}
+                              </p>
+                              <ul className="mt-1 space-y-1 text-xs text-slate-300">
+                                {message.assistResponse.blockers.items.slice(0, 3).map((item, i) => (
+                                  <li key={`${item.text}-${i}`}>- {item.text}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {message.assistResponse.actions.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {message.assistResponse.actions
+                                .filter((a) => !a.visibility || a.visibility.includes(assistRole))
+                                .slice(0, 3)
+                                .map((action) => (
+                                  <AssistActionButton
+                                    key={action.id}
+                                    title={action.tooltip}
+                                    action={action}
+                                    onNavigate={() => setOpen(false)}
+                                    className={
+                                      action.primary
+                                        ? "rounded-md border border-amber-400/50 bg-amber-500/20 px-3 py-1.5 text-[12px] font-semibold text-amber-200 ring-1 ring-amber-400/30 transition-all duration-300 ease-in-out hover:bg-amber-500/35"
+                                        : "rounded-md border border-sky-400/30 bg-sky-500/10 px-2 py-1 text-[11px] font-medium text-sky-200 transition-all duration-300 ease-in-out hover:bg-sky-500/20"
+                                    }
+                                  />
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Recommended Actions */}
                       {message.recommendedActions && message.recommendedActions.length > 0 && (
                         <div className="mt-2 border-t border-white/10 pt-1.5">
@@ -355,6 +389,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                                     {mappedAction ? (
                                       <button
                                         type="button"
+                                        title={`Open ${mappedAction.label}`}
                                         onClick={() => runAction(mappedAction)}
                                         className="flex w-full items-start gap-1 rounded-md border border-sky-400/30 bg-sky-500/10 px-2 py-1 text-left text-sky-200 transition-all duration-300 ease-in-out hover:bg-sky-500/20"
                                       >
@@ -382,23 +417,32 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                           {message.timestamp && ` · ${relativeTime(message.timestamp)}`}
                         </p>
                       )}
-                    </>
-                  )}
-                </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Action buttons */}
                 {message.actions && message.actions.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {message.actions.map((action) => (
-                      <button
+                      <AssistActionButton
                         key={action.id}
-                        type="button"
-                        onClick={() => runAction(action)}
-                        className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-all duration-300 ease-in-out hover:bg-white/[0.1]"
-                      >
-                        {action.label}
-                      </button>
+                        action={action}
+                        onNavigate={() => setOpen(false)}
+                        className={
+                          action.primary
+                            ? "rounded-md border border-amber-400/50 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-200 ring-1 ring-amber-400/30 transition-all duration-300 ease-in-out hover:bg-amber-500/35"
+                            : "rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition-all duration-300 ease-in-out hover:bg-white/[0.1]"
+                        }
+                      />
                     ))}
+                  </div>
+                )}
+
+                {message.approvalCard && (
+                  <div className="mt-2">
+                    <ApprovalChatCard payload={message.approvalCard} />
                   </div>
                 )}
 
@@ -410,6 +454,7 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                         key={chip}
                         type="button"
                         onClick={() => handleChip(chip)}
+                        disabled={isSending}
                         className="rounded-full border border-sky-400/30 bg-sky-500/15 px-2.5 py-1 text-[11px] font-medium text-sky-200 transition-all duration-300 ease-in-out hover:bg-sky-500/25"
                       >
                         {chip}
@@ -429,8 +474,9 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                disabled={isSending}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === "Enter" && !isSending) {
                     e.preventDefault()
                     handleMessage(input)
                   }
@@ -441,10 +487,11 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
               <button
                 type="button"
                 onClick={() => handleMessage(input)}
-                className="flex h-9 w-9 items-center justify-center rounded-md bg-[#1e3a8a] text-white transition-all duration-300 ease-in-out hover:bg-[#1e40af]"
+                disabled={isSending || !input.trim()}
+                className="flex h-9 w-9 items-center justify-center rounded-md bg-[#1e3a8a] text-white transition-all duration-300 ease-in-out hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Send message"
               >
-                <Send className="h-4 w-4" />
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -453,3 +500,4 @@ export function ChatbotWidget({ role }: { role: ChatRole }) {
     </>
   )
 }
+

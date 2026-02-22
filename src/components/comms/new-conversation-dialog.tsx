@@ -27,10 +27,10 @@ interface NewConversationDialogProps {
 }
 
 const CONTEXT_TYPES: { value: ContextType; label: string; color: string }[] = [
-  { value: "BOOKING",     label: "Booking",     color: "bg-blue-100 text-blue-700" },
-  { value: "CLIENT",      label: "Client",      color: "bg-green-100 text-green-700" },
-  { value: "TRANSPORTER", label: "Transporter", color: "bg-amber-100 text-amber-700" },
-  { value: "INCIDENT",    label: "Incident",    color: "bg-red-100 text-red-700" },
+  { value: "BOOKING",     label: "Booking",     color: "bg-sky-500/20 text-sky-200" },
+  { value: "CLIENT",      label: "Client",      color: "bg-emerald-500/20 text-emerald-200" },
+  { value: "TRANSPORTER", label: "Transporter", color: "bg-amber-500/20 text-amber-200" },
+  { value: "INCIDENT",    label: "Incident",    color: "bg-red-500/20 text-red-200" },
 ]
 
 export function NewConversationDialog({
@@ -296,7 +296,7 @@ export function NewConversationDialog({
                       onClick={() => addMember(u)}
                     >
                       <span className="font-medium">{u.name}</span>
-                      <span className="text-xs text-muted-foreground">{u.role}</span>
+                      <span className="text-xs text-slate-400">{u.role}</span>
                     </button>
                   ))}
                 </div>

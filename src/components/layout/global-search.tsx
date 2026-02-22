@@ -101,8 +101,8 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
     let flatIndex = 0
 
     return (
-      <div className={className ?? "relative w-full max-w-[580px]"} data-tour="search">
-        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <div className={className ?? "relative flex w-full min-w-0 items-center"} data-tour="search">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           ref={ref}
           type="text"
@@ -119,7 +119,7 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
           }}
           onKeyDown={handleKeyDown}
           placeholder="Search pages and actions  ( / )"
-          className="h-9 w-full rounded-full border border-transparent bg-slate-100 pl-10 pr-5 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-slate-300 focus:bg-white focus:shadow-sm"
+          className="w-full min-w-0 rounded-full border border-slate-200 bg-white py-3 pl-10 pr-5 text-sm leading-6 text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-300 ease-in-out focus:border-sky-400/70 focus:shadow-[0_0_8px_rgba(59,130,246,0.5)]"
         />
 
         {open && (
@@ -127,10 +127,10 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
             ref={listRef}
             id="global-search-listbox"
             role="listbox"
-            className="absolute top-full left-0 right-0 mt-2 max-h-80 overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+            className="absolute left-0 right-0 top-full mt-2 max-h-80 overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg"
           >
             {matches.length === 0 ? (
-              <div className="px-3 py-2.5 text-sm text-slate-500">No matching pages or actions.</div>
+              <div className="px-3 py-2.5 text-sm text-slate-600">No matching pages or actions.</div>
             ) : (
               <div className="py-1">
                 {Array.from(grouped.entries()).map(([category, items]) => (
@@ -157,11 +157,11 @@ export const GlobalSearch = forwardRef<HTMLInputElement, GlobalSearchProps>(
                             idx === activeIndex ? "bg-slate-100" : "hover:bg-slate-50"
                           }`}
                         >
-                          <span className="text-sm font-medium text-slate-700">
+                          <span className="text-sm font-medium text-slate-900">
                             {highlightMatch(match.route.name, debouncedQuery)}
                           </span>
                           {match.route.path && (
-                            <span className="text-xs text-slate-400 font-mono">{match.route.path}</span>
+                            <span className="font-mono text-xs text-slate-500">{match.route.path}</span>
                           )}
                         </button>
                       )
