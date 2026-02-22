@@ -111,8 +111,8 @@ function buildDocumentHelpResponse() {
 }
 
 export async function POST(request: NextRequest) {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-  const OPENAI_MODEL = process.env.OPENAI_MODEL
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? process.env.CHATGPT_API_KEY
+  const OPENAI_MODEL = process.env.OPENAI_MODEL ?? process.env.CHATGPT_MODEL ?? "gpt-4o-mini"
 
   const sessionUser = await getSessionUser()
   if (!sessionUser) {
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
 
     if (!OPENAI_API_KEY || !OPENAI_MODEL) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY or OPENAI_MODEL environment variables." },
+        { error: "Missing OPENAI API configuration. Set OPENAI_API_KEY (or CHATGPT_API_KEY)." },
         { status: 500 }
       )
     }
