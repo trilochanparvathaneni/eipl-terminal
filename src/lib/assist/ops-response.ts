@@ -22,9 +22,10 @@ function safeActionButtons(actions: Array<{ label: string; url: string; tooltip?
 export function buildBayAvailabilityResponse(params: {
   snapshot: OpsSnapshot
   role: AssistRole
+  userRole: string
   message: string
 }): BayResponse {
-  const { snapshot, role, message } = params
+  const { snapshot, role, userRole, message } = params
   const permissions = getAssistPermissions(role)
   const queueFallback = extractQueueHint(message)
   const queueCount = snapshot.queue.total ?? queueFallback ?? 0
@@ -107,6 +108,13 @@ export function buildBayAvailabilityResponse(params: {
       ]
     : []
 
+  const documentAction =
+    userRole === "CLIENT" || userRole === "TRANSPORTER"
+      ? { label: "Upload Documents", url: "/client/documents", tooltip: "Upload and index operational documents for Assist." }
+      : userRole === "TERMINAL_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "SURVEYOR"
+        ? { label: "Review Documents", url: "/admin/documents-review", tooltip: "Review and verify uploaded documents." }
+        : { label: "View Bookings", url: "/bookings", tooltip: "Open bookings linked to document requirements." }
+
   const actions = safeActionButtons([
     { label: "View Schedule", url: "/schedule", tooltip: "See today's planned loading slots." },
     { label: "Contact Control Room", url: "/contacts/control-room", tooltip: "Open contact details and escalation steps." },
@@ -116,7 +124,7 @@ export function buildBayAvailabilityResponse(params: {
     ...(permissions.canViewInternalBays
       ? [{ label: "View Queue", url: "/terminal/queue", tooltip: "Shows current truck line status by stage." }]
       : []),
-    { label: "Upload Documents", url: "/client/documents", tooltip: "Upload and index operational documents for Assist." },
+    documentAction,
   ])
 
   const roleAware = redactForRole(
@@ -153,9 +161,16 @@ export function buildBayAvailabilityResponse(params: {
   }
 }
 
-export function buildDocumentActions() {
+export function buildDocumentActions(userRole: string) {
+  const primary =
+    userRole === "CLIENT" || userRole === "TRANSPORTER"
+      ? { label: "Open Document Vault", url: "/client/documents", tooltip: "Upload and manage booking and compliance documents." }
+      : userRole === "TERMINAL_ADMIN" || userRole === "SUPER_ADMIN" || userRole === "SURVEYOR"
+        ? { label: "Open Document Review", url: "/admin/documents-review", tooltip: "Review and verify uploaded documents." }
+        : { label: "Open Bookings", url: "/bookings", tooltip: "Check booking-linked document requirements." }
+
   return safeActionButtons([
-    { label: "Open Document Vault", url: "/client/documents", tooltip: "Upload and manage booking and compliance documents." },
+    primary,
     { label: "Contact Control Room", url: "/contacts/control-room", tooltip: "Get help if upload mapping needs manual review." },
   ])
 }

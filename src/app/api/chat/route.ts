@@ -93,7 +93,7 @@ async function requestStructuredCompletion(params: {
                   url: { type: "string" },
                   tooltip: { type: "string" },
                 },
-                required: ["label", "url"],
+                required: ["label", "url", "tooltip"],
               },
             },
           },
@@ -102,6 +102,30 @@ async function requestStructuredCompletion(params: {
       },
     },
   })
+}
+
+function modelCandidates(configuredModel?: string | null): string[] {
+  const candidates = [
+    configuredModel?.trim(),
+    "gpt-4o-mini",
+    "gpt-4.1-mini",
+  ].filter(Boolean) as string[]
+  return Array.from(new Set(candidates))
+}
+
+type FallbackCategory = "auth" | "quota" | "model" | "network" | "rate_limit" | "unknown"
+
+function categorizeFallbackError(error: unknown): FallbackCategory {
+  const message = error instanceof Error ? error.message.toLowerCase() : ""
+  const status =
+    typeof (error as { status?: number })?.status === "number" ? (error as { status: number }).status : 0
+
+  if (status === 401 || message.includes("invalid api key") || message.includes("unauthorized")) return "auth"
+  if (status === 429 || message.includes("insufficient_quota") || message.includes("quota")) return "quota"
+  if (message.includes("rate limit")) return "rate_limit"
+  if (status === 404 || message.includes("model") || message.includes("does not exist") || message.includes("not found")) return "model"
+  if (message.includes("network") || message.includes("timeout") || message.includes("fetch failed")) return "network"
+  return "unknown"
 }
 
 async function persistChatLog(params: {
@@ -149,7 +173,7 @@ function buildDocumentHelpResponse() {
       },
     ],
     blockers: [],
-    action_buttons: buildDocumentActions(),
+    action_buttons: buildDocumentActions("CLIENT"),
   }
 }
 
@@ -184,6 +208,7 @@ export async function POST(request: NextRequest) {
       const computed = buildBayAvailabilityResponse({
         snapshot,
         role: assistRole,
+        userRole: sessionUser.role,
         message: parsedBody.message,
       })
 
@@ -219,7 +244,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (intent === "document_help") {
-      const payload = buildDocumentHelpResponse()
+      const payload = {
+        ...buildDocumentHelpResponse(),
+        action_buttons: buildDocumentActions(sessionUser.role),
+      }
       await persistChatLog({
         userMessage: parsedBody.message,
         botResponse: payload.reply_text,
@@ -239,25 +267,22 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY })
     let completion
-    try {
-      completion = await requestStructuredCompletion({
-        openai,
-        model: OPENAI_MODEL,
-        message: parsedBody.message,
-      })
-    } catch (modelError) {
-      const errText = modelError instanceof Error ? modelError.message.toLowerCase() : ""
-      const canRetryWithDefault =
-        OPENAI_MODEL !== "gpt-4o-mini" &&
-        (errText.includes("model") || errText.includes("not found") || errText.includes("does not exist"))
-      if (!canRetryWithDefault) {
-        throw modelError
+    let lastModelError: unknown = null
+    for (const candidate of modelCandidates(OPENAI_MODEL)) {
+      try {
+        completion = await requestStructuredCompletion({
+          openai,
+          model: candidate,
+          message: parsedBody.message,
+        })
+        lastModelError = null
+        break
+      } catch (err) {
+        lastModelError = err
       }
-      completion = await requestStructuredCompletion({
-        openai,
-        model: "gpt-4o-mini",
-        message: parsedBody.message,
-      })
+    }
+    if (!completion) {
+      throw (lastModelError ?? new Error("No compatible OpenAI chat model available."))
     }
 
     const rawText = completion.choices[0]?.message?.content
@@ -284,11 +309,20 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown chat error"
     const errorStatus = typeof (error as { status?: number })?.status === "number" ? (error as { status: number }).status : 0
+    const fallbackCategory = categorizeFallbackError(error)
     const isQuotaIssue =
       errorStatus === 429 ||
       errorMessage.toLowerCase().includes("insufficient_quota") ||
       errorMessage.toLowerCase().includes("rate limit") ||
       errorMessage.toLowerCase().includes("quota")
+
+    console.error("[assist-chat-fallback]", {
+      category: fallbackCategory,
+      status: errorStatus || null,
+      message: errorMessage,
+      userId: sessionUser.id,
+      role: sessionUser.role,
+    })
 
     let payload: {
       reply_text: string
@@ -309,6 +343,7 @@ export async function POST(request: NextRequest) {
       const computed = buildBayAvailabilityResponse({
         snapshot,
         role: assistRole,
+        userRole: sessionUser.role,
         message: parsedBody.message,
       })
       payload = {
@@ -364,6 +399,12 @@ export async function POST(request: NextRequest) {
       intent: isQuotaIssue ? "quota_fallback" : "runtime_fallback",
     })
 
-    return NextResponse.json(payload, { headers: { "x-eipl-response-mode": "fallback" } })
+    return NextResponse.json(payload, {
+      headers: {
+        "x-eipl-response-mode": "fallback",
+        "x-eipl-fallback-reason": fallbackCategory,
+        "x-eipl-fallback-status": String(errorStatus || 0),
+      },
+    })
   }
 }

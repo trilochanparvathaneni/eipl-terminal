@@ -24,6 +24,12 @@
     --input: 214 32% 91%;
     --ring: 221 83% 35%;
     --radius: 0.75rem;
+    --surface-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+    --surface-shadow-hover: 0 14px 36px rgba(15, 23, 42, 0.1);
+    --motion-fast: 160ms;
+    --motion-base: 220ms;
+    --motion-slow: 320ms;
+    --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .dark {
@@ -55,6 +61,7 @@
   }
   html {
     overflow-x: hidden; /* prevent body-level horizontal scroll that lets content slide under the fixed sidebar */
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground;
@@ -64,6 +71,10 @@
     min-height: 100vh;
     color: #0f172a;
     font-family: var(--font-sans), sans-serif;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   body::before {
     content: "";
@@ -81,24 +92,110 @@
     font-family: var(--font-display), serif;
     letter-spacing: 0.015em;
   }
+
+  :focus-visible {
+    outline: 2px solid rgba(30, 64, 175, 0.55);
+    outline-offset: 2px;
+  }
+
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: rgba(30, 64, 175, 0.22);
+    color: #0f172a;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  :root {
+    --motion-fast: 1ms;
+    --motion-base: 1ms;
+    --motion-slow: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+@layer utilities {
+  .motion-fast {
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  .motion-standard {
+    transition-duration: var(--motion-base);
+    transition-timing-function: var(--motion-ease);
+  }
+
+  .motion-deliberate {
+    transition-duration: var(--motion-slow);
+    transition-timing-function: var(--motion-ease);
+  }
 }
 
 @layer components {
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 0.75rem;
+    z-index: 110;
+    transform: translateY(-180%);
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.625rem 0.875rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
+  }
+
   .luxury-surface {
-    @apply rounded-xl border border-slate-200 bg-white shadow-[0_4px_6px_-1px_rgb(0_0_0_/_0.05)] transition-all duration-300 ease-in-out;
+    @apply rounded-xl border border-slate-200 bg-white motion-standard;
+    transition-property: box-shadow, border-color, background-color, color, transform;
+    box-shadow: var(--surface-shadow);
   }
 
   .luxury-surface:hover {
     border-color: #cbd5e1;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--surface-shadow-hover);
   }
 
   .luxury-display-area {
-    @apply mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10;
+    @apply mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8;
   }
 
   .luxury-section-spacing {
-    @apply space-y-8 lg:space-y-10;
+    @apply space-y-6 lg:space-y-8;
+  }
+
+  .ui-shell {
+    background:
+      radial-gradient(120% 80% at 50% -20%, rgba(148, 163, 184, 0.2) 0%, rgba(248, 250, 252, 0) 65%),
+      #f8fafc;
   }
 
   .clean-lux-shell {
@@ -115,7 +212,8 @@
   }
 
   .clean-lux-shell .text-slate-50,
-  .clean-lux-shell .text-slate-100 {
+  .clean-lux-shell .text-slate-100,
+  .clean-lux-shell .text-slate-200 {
     color: #0f172a !important;
   }
 
@@ -126,6 +224,7 @@
   }
 
   .clean-lux-shell .bg-white\/\[0\.04\],
+  .clean-lux-shell .bg-white\/\[0\.06\],
   .clean-lux-shell .bg-white\/\[0\.08\] {
     background: #ffffff !important;
   }
@@ -144,5 +243,33 @@
 
   .clean-lux-shell input::placeholder {
     color: #94a3b8;
+  }
+
+  /* Global readability normalization for light cards that receive dark-theme utility classes. */
+  .luxury-surface .text-slate-50,
+  .luxury-surface .text-slate-100,
+  .luxury-surface .text-slate-200 {
+    color: #0f172a !important;
+  }
+
+  .luxury-surface .text-slate-300,
+  .luxury-surface .text-slate-400,
+  .luxury-surface .text-slate-500,
+  .luxury-surface .text-muted-foreground {
+    color: #475569 !important;
+  }
+
+  .luxury-surface .bg-white\/\[0\.04\],
+  .luxury-surface .bg-white\/\[0\.06\],
+  .luxury-surface .bg-white\/\[0\.08\],
+  .luxury-surface .bg-white\/\[0\.12\],
+  .luxury-surface .bg-white\/\[0\.15\] {
+    background: #f8fafc !important;
+  }
+
+  .luxury-surface .border-white\/10,
+  .luxury-surface .border-white\/15,
+  .luxury-surface .border-white\/20 {
+    border-color: #cbd5e1 !important;
   }
 }

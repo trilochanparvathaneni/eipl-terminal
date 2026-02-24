@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { shortTip } from "@/lib/ui/tooltipCopy"
 import { guardAssistAction } from "@/lib/assist/action-route-guard"
+import { HelpTooltip } from "@/components/ui/help-tooltip"
 
 type BriefingStatus = "CRITICAL" | "BOTTLENECKED" | "STABLE"
 
@@ -24,20 +25,26 @@ interface ExecutiveBriefing {
 function statusStyles(status: BriefingStatus) {
   if (status === "CRITICAL") {
     return {
-      border: "border-red-500",
+      border: "border-red-300",
+      rail: "border-l-4 border-l-red-500",
+      surface: "bg-slate-50",
       badge: "bg-red-100 text-red-700 border-red-300",
       icon: <AlertTriangle className="h-4 w-4 text-red-600" />,
     }
   }
   if (status === "BOTTLENECKED") {
     return {
-      border: "border-amber-500",
+      border: "border-amber-300",
+      rail: "border-l-4 border-l-amber-500",
+      surface: "bg-slate-50",
       badge: "bg-amber-100 text-amber-700 border-amber-300",
       icon: <TrafficCone className="h-4 w-4 text-amber-600" />,
     }
   }
   return {
-    border: "border-emerald-500",
+    border: "border-emerald-300",
+    rail: "border-l-4 border-l-emerald-500",
+    surface: "bg-slate-50",
     badge: "bg-emerald-100 text-emerald-700 border-emerald-300",
     icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
   }
@@ -81,23 +88,23 @@ export function ExecutiveBriefingCard({ role }: { role?: Role | string }) {
     : "/dashboard"
 
   return (
-    <Card className={`border ${styles.border} bg-slate-900 text-slate-100`}>
+    <Card className={`border ${styles.border} ${styles.rail} ${styles.surface} shadow-md`}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between gap-2 text-base">
-          <span className="flex items-center gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="flex items-center gap-2 text-base text-slate-900">
             {styles.icon}
             {isClient ? "Client Daily Summary" : "Start-of-Day Executive Briefing"}
-          </span>
+          </CardTitle>
           {data && (
             <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${styles.badge}`}>
               {data.status}
             </span>
           )}
-        </CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {loading && (
-          <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex items-center gap-2 text-sm text-slate-600">
             <Loader2 className="h-4 w-4 animate-spin" />
             Building terminal briefing...
           </div>
@@ -105,19 +112,22 @@ export function ExecutiveBriefingCard({ role }: { role?: Role | string }) {
         {!loading && error && <p className="text-sm text-red-600">{error}</p>}
         {!loading && data && (
           <>
-            <p className="text-sm font-medium text-slate-100">{data.headline}</p>
-            <ul className="space-y-1 text-sm text-slate-300">
+            <p className="text-sm font-semibold text-slate-900">{data.headline}</p>
+            <ul className="space-y-2 text-sm">
               {compactMetrics.map((metric) => (
-                <li key={metric} title={shortTip(metric)} className="truncate">
-                  - {metric}
+                <li key={metric} className="flex items-start justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+                  <span className="truncate text-slate-700" title={shortTip(metric)}>
+                    {metric}
+                  </span>
+                  <HelpTooltip description={metric} label="Metric details" />
                 </li>
               ))}
             </ul>
             <div className="flex flex-wrap items-center gap-2">
-              <Link href={primaryActionHref}>
-                <Button className="w-full sm:w-auto">{data.primary_action.label}</Button>
+              <Link href={primaryActionHref} className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto bg-blue-700 text-white hover:bg-blue-800">{data.primary_action.label}</Button>
               </Link>
-              <Link href="/reports" className="text-xs text-sky-300 hover:underline">
+              <Link href="/reports" className="text-xs font-medium text-blue-700 hover:underline">
                 View details
               </Link>
             </div>

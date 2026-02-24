@@ -51,8 +51,8 @@ function renderBody(body: string, mentions: MessageMention[]) {
           className={cn(
             "px-1 rounded text-xs font-semibold",
             mention.mentionType === "INTERNAL"
-              ? "bg-sky-500/15 text-sky-200"
-              : "bg-amber-500/20 text-amber-200"
+              ? "bg-sky-100 text-sky-700"
+              : "bg-amber-100 text-amber-700"
           )}
         >
           {tag}
@@ -129,7 +129,7 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-400">
+          <p className="py-8 text-center text-sm text-slate-500">
             No messages yet. Start the conversation!
           </p>
         )}
@@ -142,13 +142,13 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
               onMouseEnter={() => setHoveredId(msg.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/[0.08] text-xs font-semibold text-slate-100">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-xs font-semibold text-slate-700">
                 {msg.sender.name.charAt(0).toUpperCase()}
               </div>
               <div className={cn("max-w-[70%] space-y-1", isOwn && "items-end")}>
                 <div className={cn("flex items-center gap-2", isOwn && "flex-row-reverse")}>
                   <span className="text-xs font-medium">{msg.sender.name}</span>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-slate-500">
                     {new Date(msg.createdAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -170,8 +170,8 @@ export function MessageThread({ conversationId, currentUserId, onCreateTask }: M
                   className={cn(
                     "rounded-lg px-3 py-2 text-sm leading-relaxed",
                     isOwn
-                      ? "bg-white/15 text-slate-50"
-                      : "bg-white/[0.06] text-slate-100"
+                      ? "bg-sky-100 text-sky-900"
+                      : "bg-slate-100 text-slate-800"
                   )}
                 >
                   {renderBody(msg.body, msg.mentions)}

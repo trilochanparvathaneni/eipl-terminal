@@ -89,8 +89,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-700">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+        <span className="sr-only">Loading application</span>
       </div>
     )
   }
@@ -109,7 +110,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const mainOffset = sidebarCollapsed ? "lg:pl-28" : "lg:pl-72"
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen ui-shell">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <Sidebar
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
@@ -154,6 +158,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   <button
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/[0.05] text-sm font-semibold text-slate-100 transition-all duration-300 ease-in-out hover:bg-white/[0.1] hover:ring-2 hover:ring-white/25 hover:ring-offset-1 hover:ring-offset-slate-900/70"
                     data-tour="profile"
+                    aria-label="Open user menu"
                     title={userName}
                   >
                     {initials}
@@ -201,7 +206,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className={cn("overflow-x-hidden pt-16 lg:pt-20", mainOffset)}>
+      <main id="main-content" tabIndex={-1} className={cn("overflow-x-hidden pt-16 lg:pt-20", mainOffset)}>
         <DisplayArea>{children}</DisplayArea>
       </main>
 

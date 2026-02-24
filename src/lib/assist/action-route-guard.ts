@@ -36,6 +36,7 @@ const ROUTE_ALLOWLIST_EXACT = new Set<string>([
   "/terminal/bays",
   "/terminal/queue",
   "/client/documents",
+  "/admin/documents-review",
 ])
 
 const ROUTE_ALLOWLIST_PREFIXES = [

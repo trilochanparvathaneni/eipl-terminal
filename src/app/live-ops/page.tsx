@@ -118,7 +118,7 @@ export default function LiveOpsPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center text-slate-300">
+      <div className="flex min-h-[50vh] items-center justify-center text-slate-600">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         Loading Live Ops...
       </div>
@@ -131,7 +131,7 @@ export default function LiveOpsPage() {
         <CardHeader>
           <CardTitle>Not authorized</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-slate-400">
+        <CardContent className="text-sm text-muted-foreground">
           Live Ops command panel is available to internal terminal roles only.
         </CardContent>
       </Card>
@@ -142,18 +142,18 @@ export default function LiveOpsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Live Ops</h1>
-          <p className="text-xs text-slate-400">Compact live terminal view for movement decisions.</p>
+          <h1 className="text-xl font-semibold text-slate-900">Live Ops</h1>
+          <p className="text-xs text-slate-600">Compact live terminal view for movement decisions.</p>
         </div>
-        <p className="text-xs text-slate-400">Updated {formatTime(updatedAt)}</p>
+        <p className="text-xs text-slate-600">Updated {formatTime(updatedAt)}</p>
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       ) : null}
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">AI Risk Analysis</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">AI Risk Analysis</p>
         <ExecutiveBriefingCard role={role} />
       </div>
 
@@ -168,7 +168,7 @@ export default function LiveOpsPage() {
           <span
             key={insight.key}
             title={shortTip(insight.label)}
-            className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs text-sky-200"
+            className="rounded-full border border-sky-300 bg-sky-50 px-3 py-1 text-xs text-sky-700"
           >
             {insight.label}
           </span>

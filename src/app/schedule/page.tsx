@@ -249,7 +249,7 @@ export default function SchedulePage() {
             <DialogTitle>Schedule Booking: {selectedBooking?.bookingNo}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="text-sm text-slate-300">
+            <div className="text-sm text-slate-600">
               <p>{selectedBooking?.client?.name} - {selectedBooking?.product?.name} ({selectedBooking?.quantityRequested})</p>
             </div>
             <div className="space-y-2">

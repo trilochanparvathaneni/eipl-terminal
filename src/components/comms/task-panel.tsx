@@ -18,17 +18,17 @@ interface Task {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: "bg-sky-500/20 text-sky-200",
-  IN_PROGRESS: "bg-amber-500/20 text-amber-200",
-  DONE: "bg-emerald-500/20 text-emerald-200",
-  CANCELLED: "bg-slate-500/20 text-slate-300",
+  OPEN: "bg-sky-100 text-sky-700",
+  IN_PROGRESS: "bg-amber-100 text-amber-700",
+  DONE: "bg-emerald-100 text-emerald-700",
+  CANCELLED: "bg-slate-100 text-slate-700",
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  LOW: "text-slate-300",
-  MEDIUM: "text-sky-300",
-  HIGH: "text-amber-300",
-  URGENT: "text-red-300",
+  LOW: "text-slate-600",
+  MEDIUM: "text-sky-700",
+  HIGH: "text-amber-700",
+  URGENT: "text-red-700",
 }
 
 interface TaskPanelProps {
@@ -88,8 +88,8 @@ export function TaskPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between border-b border-white/10 p-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+      <div className="flex items-center justify-between border-b border-slate-200 p-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <CheckSquare className="h-4 w-4" />
           Tasks
         </h2>
@@ -106,28 +106,28 @@ export function TaskPanel({
 
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
         {loading && (
-          <p className="py-4 text-center text-xs text-slate-400">Loading...</p>
+          <p className="py-4 text-center text-xs text-slate-500">Loading...</p>
         )}
         {!loading && tasks.length === 0 && (
           <div className="text-center py-8 space-y-2">
             <CheckSquare className="mx-auto h-8 w-8 text-slate-500" />
-            <p className="text-xs text-slate-400">No tasks linked to this conversation</p>
+            <p className="text-xs text-slate-500">No tasks linked to this conversation</p>
           </div>
         )}
         {tasks.map((task) => (
-          <div key={task.id} className="space-y-2 rounded-md border border-white/10 bg-white/[0.03] p-3">
+          <div key={task.id} className="space-y-2 rounded-md border border-slate-200 bg-slate-50/70 p-3">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium leading-tight">{task.title}</p>
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium", STATUS_COLORS[task.status] || "bg-slate-500/20 text-slate-300")}>
+              <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium", STATUS_COLORS[task.status] || "bg-slate-100 text-slate-700")}>
                 {task.status.replace("_", " ")}
               </span>
             </div>
 
             {task.description && (
-              <p className="line-clamp-2 text-xs text-slate-400">{task.description}</p>
+              <p className="line-clamp-2 text-xs text-slate-600">{task.description}</p>
             )}
 
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
               <span className={cn("font-medium", PRIORITY_COLORS[task.priority])}>
                 {task.priority}
               </span>
@@ -135,7 +135,7 @@ export function TaskPanel({
                 <span>Due {new Date(task.dueAt).toLocaleDateString()}</span>
               )}
               {task.assignee && (
-                <span>→ {task.assignee.name}</span>
+                <span>-&gt; {task.assignee.name}</span>
               )}
             </div>
 
@@ -164,7 +164,7 @@ export function TaskPanel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-xs text-slate-400"
+                  className="h-6 text-xs text-slate-600 hover:text-slate-800"
                   onClick={() => handleStatusChange(task.id, "CANCELLED")}
                 >
                   Cancel

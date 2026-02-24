@@ -19,6 +19,22 @@ npm run seed
 npm run dev          # → http://localhost:3000
 ```
 
+## Health Checks
+
+Use these after the app is running:
+
+```bash
+# API/server liveness only (recommended for quick verification)
+npm run health:demo
+
+# Full verification (includes DB connectivity + migration status)
+npm run health:full
+```
+
+Expected behavior:
+- `health:demo` should pass when the server is up and API routes respond (protected routes typically return `401/403` without auth).
+- `health:full` should pass only when database connectivity is available and Prisma migrations are fully applied.
+
 Default demo credentials — password for all accounts is `password123`:
 
 | Role               | Email                        |

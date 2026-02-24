@@ -19,10 +19,10 @@ interface Conversation {
 }
 
 const CONTEXT_PILL: Record<ConvContextType, string> = {
-  BOOKING:     "bg-sky-500/20 text-sky-200",
-  CLIENT:      "bg-emerald-500/20 text-emerald-200",
-  TRANSPORTER: "bg-amber-500/20 text-amber-200",
-  INCIDENT:    "bg-red-500/20 text-red-200",
+  BOOKING:     "bg-sky-100 text-sky-700",
+  CLIENT:      "bg-emerald-100 text-emerald-700",
+  TRANSPORTER: "bg-amber-100 text-amber-700",
+  INCIDENT:    "bg-red-100 text-red-700",
 }
 
 interface ConversationSidebarProps {
@@ -113,8 +113,8 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
             className={cn(
               "w-full rounded-md px-3 py-2.5 text-left transition-all duration-300 ease-in-out",
               activeId === conv.id
-                ? "bg-white/[0.12] text-slate-50"
-                : "text-slate-200 hover:bg-white/[0.06]"
+                ? "bg-slate-200 text-slate-900"
+                : "text-slate-700 hover:bg-slate-100"
             )}
             onClick={() => handleSelect(conv.id)}
           >
@@ -127,7 +127,7 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                     className={cn(
                       "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
                       activeId === conv.id
-                        ? "bg-white/20 text-slate-50"
+                        ? "bg-slate-700 text-white"
                         : CONTEXT_PILL[conv.contextType]
                     )}
                     title={conv.contextLabel ?? conv.contextType}
@@ -139,9 +139,9 @@ export function ConversationSidebar({ activeId, onSelect }: ConversationSidebarP
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full",
                     conv.audience === "INTERNAL_ONLY"
-                      ? "bg-sky-500/20 text-sky-200"
-                      : "bg-amber-500/20 text-amber-200",
-                    activeId === conv.id && "bg-white/20 text-slate-50"
+                      ? "bg-sky-100 text-sky-700"
+                      : "bg-amber-100 text-amber-700",
+                    activeId === conv.id && "bg-slate-700 text-white"
                   )}
                 >
                   {conv.audience === "INTERNAL_ONLY" ? "Internal" : "Mixed"}
